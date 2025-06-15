@@ -1,56 +1,101 @@
-body {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  line-height: 1.6;
+/* style.css */
+
+/* Reset and base styles */
+* {
   margin: 0;
   padding: 0;
-  background: #f9f9f9;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Nunito Sans', sans-serif;
+  line-height: 1.6;
+  background-color: #f9f9f9;
   color: #333;
+  padding: 0 1rem;
 }
 
 header {
-  background: #2196f3;
+  background: linear-gradient(to right, #0099cc, #66ccff);
   color: white;
-  padding: 2rem;
   text-align: center;
+  padding: 3rem 1rem 2rem;
+  border-bottom: 5px solid #0077aa;
 }
 
-header .tagline {
-  font-weight: 300;
+header h1 {
+  font-size: 2.8rem;
+  margin-bottom: 0.5rem;
+}
+
+header p {
   font-size: 1.2rem;
-  margin-top: 0.5rem;
-}
-
-main {
-  padding: 2rem;
-  max-width: 800px;
+  max-width: 600px;
   margin: 0 auto;
 }
 
-h2 {
-  color: #444;
-  border-bottom: 2px solid #2196f3;
-  padding-bottom: 0.5rem;
+main {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.08);
+}
+
+section {
+  margin-bottom: 2.5rem;
+}
+
+section h2 {
+  font-size: 1.8rem;
+  color: #005577;
   margin-bottom: 1rem;
+  border-bottom: 2px solid #00b0d8;
+  display: inline-block;
+  padding-bottom: 0.3rem;
 }
 
 ul {
   list-style-type: none;
-  padding: 0;
+  padding-left: 1rem;
 }
 
-li {
-  margin-bottom: 0.5rem;
+ul li {
+  margin: 0.8rem 0;
   font-size: 1.1rem;
 }
 
-section {
-  margin-bottom: 3rem;
+ul li::before {
+  content: '\2022';
+  color: #0099cc;
+  font-weight: bold;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+}
+
+.about p, .contact p {
+  font-size: 1rem;
+  margin-top: 0.5rem;
 }
 
 footer {
-  text-align: center;
+  background-color: #efefef;
   padding: 1rem;
-  background: #eee;
+  text-align: center;
   font-size: 0.9rem;
-  color: #666;
+  color: #555;
+  margin-top: 3rem;
+  border-top: 1px solid #ccc;
+}
+
+@media (max-width: 600px) {
+  header h1 {
+    font-size: 2rem;
+  }
+
+  main {
+    padding: 1rem;
+  }
 }
