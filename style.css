@@ -1,31 +1,37 @@
+:root {
+  --accent: #0066ff;
+  --bg-light: #f7f9fc;
+  --text-dark: #111;
+  --text-muted: #555;
+  --font: 'Inter', sans-serif;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html {
-  font-family: 'Inter', sans-serif;
-  background-color: #f9f9f9;
-  color: #333;
+body {
+  font-family: var(--font);
+  color: var(--text-dark);
+  background-color: var(--bg-light);
   line-height: 1.6;
 }
 
-body {
-  font-size: 16px;
+a {
+  color: var(--accent);
+  text-decoration: none;
 }
 
-.container {
-  width: 90%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 2rem 0;
+a:hover {
+  text-decoration: underline;
 }
 
 .hero {
-  background: linear-gradient(135deg, #0080ff, #0040ff);
+  background: linear-gradient(135deg, #0066ff, #0040ff);
   color: white;
-  padding: 5rem 0 4rem;
+  padding: 5rem 2rem;
   text-align: center;
 }
 
@@ -34,56 +40,65 @@ body {
   font-weight: 700;
 }
 
-.tagline {
+.hero p {
   font-size: 1.25rem;
-  margin-top: 1rem;
-  font-weight: 400;
+  margin-top: 0.5rem;
 }
 
-section {
-  margin-top: 3rem;
+.hero span {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.container {
+  width: 90%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 3rem 0;
 }
 
 h2 {
-  font-size: 1.75rem;
-  margin-bottom: 1rem;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
   font-weight: 600;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 0.5rem;
+  color: var(--text-dark);
 }
 
-ul {
-  list-style: none;
-  padding-left: 1.2rem;
+.card-grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-ul li {
+.card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.card h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.contact p {
   margin-bottom: 0.75rem;
-  position: relative;
-  padding-left: 1.2rem;
-}
-
-ul li::before {
-  content: '•';
-  color: #0080ff;
-  position: absolute;
-  left: 0;
-}
-
-a {
-  color: #0040ff;
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
 }
 
 .footer {
-  background-color: #f1f1f1;
   text-align: center;
   font-size: 0.875rem;
-  padding: 2rem 0;
-  margin-top: 4rem;
-  color: #777;
+  color: #999;
+  padding: 2rem 1rem;
 }
