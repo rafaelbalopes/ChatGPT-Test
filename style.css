@@ -1,101 +1,89 @@
-/* style.css */
-
-/* Reset and base styles */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Nunito Sans', sans-serif;
-  line-height: 1.6;
+html {
+  font-family: 'Inter', sans-serif;
   background-color: #f9f9f9;
   color: #333;
-  padding: 0 1rem;
+  line-height: 1.6;
 }
 
-header {
-  background: linear-gradient(to right, #0099cc, #66ccff);
-  color: white;
-  text-align: center;
-  padding: 3rem 1rem 2rem;
-  border-bottom: 5px solid #0077aa;
+body {
+  font-size: 16px;
 }
 
-header h1 {
-  font-size: 2.8rem;
-  margin-bottom: 0.5rem;
-}
-
-header p {
-  font-size: 1.2rem;
-  max-width: 600px;
+.container {
+  width: 90%;
+  max-width: 960px;
   margin: 0 auto;
+  padding: 2rem 0;
 }
 
-main {
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.08);
+.hero {
+  background: linear-gradient(135deg, #0080ff, #0040ff);
+  color: white;
+  padding: 5rem 0 4rem;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+.tagline {
+  font-size: 1.25rem;
+  margin-top: 1rem;
+  font-weight: 400;
 }
 
 section {
-  margin-bottom: 2.5rem;
+  margin-top: 3rem;
 }
 
-section h2 {
-  font-size: 1.8rem;
-  color: #005577;
+h2 {
+  font-size: 1.75rem;
   margin-bottom: 1rem;
-  border-bottom: 2px solid #00b0d8;
-  display: inline-block;
-  padding-bottom: 0.3rem;
+  font-weight: 600;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 0.5rem;
 }
 
 ul {
-  list-style-type: none;
-  padding-left: 1rem;
+  list-style: none;
+  padding-left: 1.2rem;
 }
 
 ul li {
-  margin: 0.8rem 0;
-  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  padding-left: 1.2rem;
 }
 
 ul li::before {
-  content: '\2022';
-  color: #0099cc;
-  font-weight: bold;
-  display: inline-block;
-  width: 1em;
-  margin-left: -1em;
+  content: '•';
+  color: #0080ff;
+  position: absolute;
+  left: 0;
 }
 
-.about p, .contact p {
-  font-size: 1rem;
-  margin-top: 0.5rem;
+a {
+  color: #0040ff;
+  text-decoration: none;
 }
 
-footer {
-  background-color: #efefef;
-  padding: 1rem;
+a:hover {
+  text-decoration: underline;
+}
+
+.footer {
+  background-color: #f1f1f1;
   text-align: center;
-  font-size: 0.9rem;
-  color: #555;
-  margin-top: 3rem;
-  border-top: 1px solid #ccc;
-}
-
-@media (max-width: 600px) {
-  header h1 {
-    font-size: 2rem;
-  }
-
-  main {
-    padding: 1rem;
-  }
+  font-size: 0.875rem;
+  padding: 2rem 0;
+  margin-top: 4rem;
+  color: #777;
 }
