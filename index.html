@@ -1,61 +1,409 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rafael Lopes | Music Therapist</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Julie Charette | Music Therapist - Material Design Concept</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Material+Icons&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Chosen Palette: Material Design Inspired (Deep Purple, Teal Accent) -->
+    <!-- Application Structure Plan: A single-page application simulating multiple pages. The structure includes a Home section (Hero, About with integrated video), a Services Overview, detailed Service Pages (dynamically loaded), a new Visuals Gallery (now with video examples), and a dedicated Contact page. Navigation is managed via JavaScript, which hides/shows content blocks based on user clicks on navigation links or service cards. A persistent navigation bar and a floating action button ensure continuous access to key site areas. This structure was chosen to provide a richer, more explorable user experience while adhering to the single-HTML file constraint. -->
+    <!-- Visualization & Content Choices:
+        - Hero Section: Goal: Inform & Engage. Viz/Method: Large typography on a solid gradient background. Interaction: None beyond visual impact. Justification: Creates a strong first impression with a clean, stable visual. Library/Method: Tailwind CSS.
+        - About Me Section: Goal: Inform. Viz/Method: Text block alongside an integrated looping background video. Interaction: None beyond ambient visual. Justification: Provides essential background information with calming, subtle motion. Library/Method: HTML <video> tag, Tailwind CSS.
+        - Services Overview: Goal: Showcase & Navigate. Viz/Method: Card grid. Interaction: Click on card to navigate to detail page. Justification: Visually highlights services and acts as entry points to more detailed content. Library/Method: Tailwind CSS, Vanilla JS.
+        - Service Detail Pages: Goal: Inform in-depth. Viz/Method: Dynamic content sections with text, icons. Interaction: "Back to Services" button. Justification: Provides comprehensive information for each service. Library/Method: Vanilla JS to populate and display.
+        - Visuals Gallery: Goal: Engage & Inspire. Viz/Method: Grid of placeholder images and conceptual video embeds. Interaction: Videos are playable. Justification: Showcases visual aspects of the practice or related calming imagery, now with motion. Library/Method: HTML <video> tag, placeholder images.
+        - Contact Page: Goal: Facilitate Contact. Viz/Method: Dedicated section with contact links. Interaction: Clickable links. Justification: Centralizes contact information on its own accessible page. Library/Method: HTML.
+        - Floating Action Button (FAB): Goal: Facilitate Primary Action. Viz/Method: Fixed, circular button. Interaction: Click to scroll to contact page. Justification: Prominently displays a key call to action. Library/Method: Tailwind CSS, Vanilla JS.
+        - Top Navigation: Goal: Global Navigation. Viz/Method: Sticky bar with text links. Interaction: Click to switch main pages. Justification: Provides consistent navigation across the site. Library/Method: Tailwind CSS, Vanilla JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #F5F5F5; /* Light Grey for Material feel */
+            color: #212121;
+        }
+        .material-shadow {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1), 0 6px 20px rgba(0,0,0,0.08);
+        }
+        .hero-material {
+            background: linear-gradient(135deg, #673AB7, #512DA8); /* Deep Purple */
+            color: white;
+            padding: 8rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            /* Removed video background related CSS from here */
+        }
+        /* No hero-video-background class needed here anymore */
+
+        .btn-material {
+            background-color: #00BCD4; /* Teal Accent */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px; /* Fully rounded */
+            font-weight: 500;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-material:hover {
+            background-color: #0097A7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .card-material {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card-material:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: #00BCD4; /* Teal Accent */
+            color: white;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        .fab:hover {
+            background-color: #0097A7;
+            transform: scale(1.05);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        .hidden-page {
+            display: none;
+        }
+        .gallery-item {
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .gallery-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        .gallery-item img, .gallery-item video {
+            width: 100%;
+            height: 200px; /* Fixed height for consistency */
+            object-fit: cover; /* Cover the area, crop if needed */
+            display: block;
+        }
+        .about-video-container {
+            width: 100%;
+            padding-bottom: 75%; /* 4:3 aspect ratio (300/400) */
+            position: relative;
+            border-radius: 0.75rem; /* Rounded corners for the container */
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow like image */
+        }
+        .about-video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
 </head>
-<body>
-  <header class="hero">
-    <div class="hero-content">
-      <h1>Rafael Lopes</h1>
-      <p>Certified Music Therapist</p>
-      <span>Healing Through Sound</span>
+<body class="antialiased">
+
+    <nav class="sticky top-0 z-50 py-3 bg-white/80 backdrop-blur-md shadow-md">
+        <ul class="flex justify-center space-x-4 sm:space-x-8 text-lg font-medium text-gray-700">
+            <li><a href="#home-page" class="nav-link block px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors">Home</a></li>
+            <li><a href="#services-overview" class="nav-link block px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors">Services</a></li>
+            <li><a href="#visuals-gallery" class="nav-link block px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors">Gallery</a></li>
+            <li><a href="#contact-page" class="nav-link block px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors">Contact</a></li>
+        </ul>
+    </nav>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+        <!-- Home Page Section -->
+        <section id="home-page" class="fade-in page">
+            <header class="hero-material">
+                <!-- Removed video tag from here -->
+                <div class="max-w-4xl mx-auto px-4 relative z-10">
+                    <h1 class="text-5xl md:text-6xl font-bold mb-4">Julie Charette</h1>
+                    <p class="text-2xl md:text-3xl font-light mb-6">Certified Music Therapist</p>
+                    <span class="text-xl opacity-80 font-medium">Healing Through Sound & Connection</span>
+                    <div class="mt-10">
+                        <button onclick="showPage('contact-page')" class="btn-material">Get Started Today</button>
+                    </div>
+                </div>
+            </header>
+
+            <section id="about" class="mb-20 mt-16">
+                <h2 class="text-4xl font-bold text-center mb-12 text-gray-800">About Julie's Practice</h2>
+                <div class="bg-white p-8 md:p-12 rounded-xl material-shadow max-w-4xl mx-auto text-gray-700 leading-relaxed text-lg grid md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <p class="mb-4">
+                            Julie is dedicated to helping individuals reconnect with themselves and others through the transformative power of music. With over a decade of compassionate experience, her practice seamlessly blends evidence-based therapeutic techniques with the profound impact of sound, rhythm, and deep listening.
+                        </p>
+                        <p>
+                            Her approach is client-centered, creating a safe and nurturing space where individuals can explore, express, and heal. Julie believes in the inherent musicality within each person and uses it as a pathway to emotional regulation, personal growth, and enhanced well-being.
+                        </p>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="about-video-container">
+                            <video autoplay loop muted playsinline class="w-full h-full">
+                                <source src="https://drive.google.com/uc?export=download&id=1eDI-grhdxI8durJgIw809xX8vJxNUCTh" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- Services Overview Page Section -->
+        <section id="services-overview" class="hidden-page page">
+            <h2 class="text-4xl font-bold text-center mb-12 text-gray-800">Our Services</h2>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+                <div class="card-material" onclick="showServiceDetail('individual')">
+                    <span class="material-icons text-5xl mb-4 text-purple-700">person</span>
+                    <h3 class="text-2xl font-semibold mb-2">Individual Sessions</h3>
+                    <p class="text-gray-600">Personalized 1-on-1 music therapy, tailored to your unique needs.</p>
+                </div>
+                <div class="card-material" onclick="showServiceDetail('trauma')">
+                    <span class="material-icons text-5xl mb-4 text-purple-700">psychology</span>
+                    <h3 class="text-2xl font-semibold mb-2">Trauma-Informed Care</h3>
+                    <p class="text-gray-600">Specialized support for emotional regulation and healing using sound-based techniques.</p>
+                </div>
+                <div class="card-material" onclick="showServiceDetail('group')">
+                    <span class="material-icons text-5xl mb-4 text-purple-700">groups</span>
+                    <h3 class="text-2xl font-semibold mb-2">Group Workshops</h3>
+                    <p class="text-gray-600">Customized workshops for schools, clinics, community programs.</p>
+                </div>
+                <div class="card-material" onclick="showServiceDetail('meditation')">
+                    <span class="material-icons text-5xl mb-4 text-purple-700">self_improvement</span>
+                    <h3 class="text-2xl font-semibold mb-2">Sound Meditation</h3>
+                    <p class="text-gray-600">Deep relaxation and nervous system reset through immersive music experiences.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Service Detail Page (dynamic content) -->
+        <section id="service-detail-page" class="hidden-page page">
+            <button onclick="showPage('services-overview')" class="btn-material flex items-center mb-8 px-4 py-2 text-base">
+                <span class="material-icons mr-2">arrow_back</span> Back to Services
+            </button>
+            <div class="bg-white p-8 md:p-12 rounded-xl material-shadow max-w-4xl mx-auto text-gray-700">
+                <span id="service-detail-icon" class="material-icons text-6xl mb-6 text-purple-700 block text-center"></span>
+                <h2 id="service-detail-title" class="text-4xl font-bold text-center mb-8 text-gray-800"></h2>
+                <div id="service-detail-content" class="leading-relaxed text-lg space-y-4">
+                    <!-- Dynamic content will be loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Visuals Gallery Section -->
+        <section id="visuals-gallery" class="hidden-page page">
+            <h2 class="text-4xl font-bold text-center mb-12 text-gray-800">Our Visuals & Inspiration</h2>
+            <p class="text-lg text-gray-600 text-center max-w-3xl mx-auto mb-12">
+                A selection of calming and inspiring visuals that reflect the essence of music therapy and our practice. This includes conceptual VEO3-generated clips.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <div class="gallery-item">
+                    <video controls loop playsinline class="w-full h-auto">
+                        <!-- VEO3 "Ripples of Resonance" video -->
+                        <source src="https://drive.google.com/uc?export=download&id=1kolcGFlQ1K33rXut_A8_bGCEkYMgQPzT" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="gallery-item">
+                    <img src="https://placehold.co/600x400/81C784/FFFFFF?text=Mindful+Moments" alt="Person meditating with headphones">
+                </div>
+                <div class="gallery-item">
+                    <video controls loop playsinline class="w-full h-auto">
+                        <!-- VEO3 "Abstract Musical Bloom" video -->
+                        <source src="https://drive.google.com/uc?export=download&id=1hbOh9zWH3_ytaTgtD5talQz95A1aidC4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="gallery-item">
+                    <img src="https://placehold.co/600x400/FFB300/FFFFFF?text=Therapeutic+Tools" alt="Assortment of music therapy instruments">
+                </div>
+                <div class="gallery-item">
+                    <video controls loop playsinline class="w-full h-auto">
+                        <!-- VEO3 "Calm Instrument Glow" video -->
+                        <source src="https://drive.google.com/uc?export=download&id=18c01JnacOxcXmJ3ycRSBNp7FrcJPaMY6" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="gallery-item">
+                    <img src="https://placehold.co/600x400/7E57C2/FFFFFF?text=Peaceful+Environment" alt="Calm, inviting therapy room">
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Page Section -->
+        <section id="contact-page" class="hidden-page page">
+            <h2 class="text-4xl font-bold text-center mb-12 text-gray-800">Connect With Julie</h2>
+            <div class="bg-white p-8 md:p-12 rounded-xl material-shadow max-w-2xl mx-auto text-gray-700 space-y-6">
+                <p class="text-lg">Ready to explore how music therapy can support your journey? Reach out today to schedule a consultation or learn more about Julie's services.</p>
+                <p class="flex items-center text-lg">
+                    <span class="material-icons text-teal-600 mr-3">email</span>
+                    Email: <a href="mailto:julie@example.com" class="text-blue-600 hover:underline ml-2">julie@example.com</a>
+                </p>
+                <p class="flex items-center text-lg">
+                    <span class="material-icons text-teal-600 mr-3">phone</span>
+                    Phone: <a href="tel:+15551234567" class="text-blue-600 hover:underline ml-2">(555) 123-4567</a>
+                </p>
+                <p class="flex items-center text-lg">
+                    <span class="material-icons text-teal-600 mr-3">alternate_email</span>
+                    Instagram: <a href="https://instagram.com/julie_musictherapy" target="_blank" class="text-blue-600 hover:underline ml-2">@julie_musictherapy</a>
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center text-gray-600 text-sm py-8 mt-20">
+        <p>&copy; 2025 Julie Charette | Certified Music Therapist. All rights reserved.</p>
+    </footer>
+
+    <div class="fab" onclick="showPage('contact-page')">
+        <span class="material-icons">message</span>
     </div>
-  </header>
 
-  <main>
-    <section class="about container">
-      <h2>About Me</h2>
-      <p>
-        I help individuals reconnect with themselves through music. With over a decade of experience, my practice blends evidence-based therapeutic techniques with sound, rhythm, and deep listening.
-      </p>
-    </section>
+    <script>
+        const pageData = {
+            individual: {
+                icon: 'person',
+                title: 'Individual Sessions',
+                content: `
+                    <p>Our one-on-one music therapy sessions are custom-tailored to your personal goals and needs. Whether you're seeking emotional support, stress reduction, or personal growth, Julie will design a therapeutic experience that resonates with you. Sessions are available both in-person for local clients and virtually for convenience.</p>
+                    <p>Through active music-making, guided listening, lyrical analysis, and creative expression, individual sessions provide a safe and confidential space for self-discovery and healing. No musical experience is required to benefit from these sessions.</p>
+                    <h3 class="text-2xl font-semibold mt-6 mb-3 text-gray-800">What to Expect:</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-600">
+                        <li>Personalized assessment and goal setting.</li>
+                        <li>Engaging musical interventions (e.g., improvisation, songwriting, receptive music).</li>
+                        <li>Supportive and non-judgmental environment.</li>
+                        <li>Flexible scheduling to fit your lifestyle.</li>
+                    </ul>
+                `
+            },
+            trauma: {
+                icon: 'psychology',
+                title: 'Trauma-Informed Care',
+                content: `
+                    <p>Music therapy offers a unique and powerful pathway for processing and healing from trauma. Julie's trauma-informed approach utilizes sound and rhythm to help regulate the nervous system, facilitate emotional release, and build coping strategies in a gentle and non-verbal way.</p>
+                    <p>Working at your pace, these sessions create a sense of safety and predictability. Music can provide a container for difficult emotions, help integrate fragmented memories, and promote resilience. Emphasis is placed on creating a space where clients feel empowered and in control of their therapeutic journey.</p>
+                    <h3 class="text-2xl font-semibold mt-6 mb-3 text-gray-800">Benefits Include:</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-600">
+                        <li>Improved emotional regulation and distress tolerance.</li>
+                        <li>Reduced anxiety and hypervigilance.</li>
+                        <li>Enhanced self-awareness and self-compassion.</li>
+                        <li>Development of healthy coping mechanisms.</li>
+                    </ul>
+                `
+            },
+            group: {
+                icon: 'groups',
+                title: 'Group Workshops',
+                content: `
+                    <p>Group music therapy workshops offer a collaborative and supportive environment for shared healing and growth. These workshops are designed for various settings, including schools, clinics, community centers, and corporate wellness programs.</p>
+                    <p>Participants engage in collective musical experiences that foster connection, communication, and mutual support. Groups can be tailored to address specific themes such as stress management, team building, social skills development, or grief processing. Music provides a common language that transcends verbal barriers.</p>
+                    <h3 class="text-2xl font-semibold mt-6 mb-3 text-gray-800">Ideal For:</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-600">
+                        <li>Schools looking for creative social-emotional learning programs.</li>
+                        <li>Healthcare facilities seeking complementary therapeutic interventions.</li>
+                        <li>Community organizations building stronger connections among members.</li>
+                        <li>Corporate teams aiming to enhance cohesion and reduce workplace stress.</li>
+                    </ul>
+                `
+            },
+            meditation: {
+                icon: 'self_improvement',
+                title: 'Sound Meditation',
+                content: `
+                    <p>Immerse yourself in the restorative power of sound meditation. These sessions provide a profound opportunity for relaxation, nervous system reset, and deep inner peace. Julie guides participants through resonant soundscapes created with various instruments, fostering a meditative state without requiring prior experience.</p>
+                    <p>Sound meditations can reduce physical tension, quiet the mind, and promote a sense of well-being. They are perfect for those seeking a unique way to destress, enhance mindfulness, or simply experience the therapeutic benefits of sound immersion.</p>
+                    <h3 class="text-2xl font-semibold mt-6 mb-3 text-gray-800">Experience the Benefits:</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-600">
+                        <li>Profound relaxation and stress reduction.</li>
+                        <li>Improved sleep quality.</li>
+                        <li>Enhanced mental clarity and focus.</li>
+                        <li>Support for emotional balance and well-being.</li>
+                    </ul>
+                `
+            }
+        };
 
-    <section class="services container">
-      <h2>Services</h2>
-      <div class="card-grid">
-        <div class="card">
-          <h3>🎵 Individual Sessions</h3>
-          <p>1-on-1 music therapy, in person or virtual.</p>
-        </div>
-        <div class="card">
-          <h3>🧠 Trauma Recovery</h3>
-          <p>Support for emotional regulation using sound-based techniques.</p>
-        </div>
-        <div class="card">
-          <h3>🏫 Group Workshops</h3>
-          <p>Tailored for schools, clinics & community programs.</p>
-        </div>
-        <div class="card">
-          <h3>🧘‍♀️ Sound Meditation</h3>
-          <p>Relaxation & nervous system reset through music immersion.</p>
-        </div>
-      </div>
-    </section>
+        const pages = document.querySelectorAll('.page');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const serviceDetailIcon = document.getElementById('service-detail-icon');
+        const serviceDetailTitle = document.getElementById('service-detail-title');
+        const serviceDetailContent = document.getElementById('service-detail-content');
 
-    <section class="contact container">
-      <h2>Contact</h2>
-      <p>Email: <a href="mailto:rafael@example.com">rafael@example.com</a></p>
-      <p>Phone: (555) 123-4567</p>
-      <p>Instagram: <a href="https://instagram.com/rafael_musictherapy">@rafael_musictherapy</a></p>
-    </section>
-  </main>
+        function showPage(pageId) {
+            pages.forEach(page => {
+                page.classList.add('hidden-page');
+            });
+            const targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.classList.remove('hidden-page');
+                targetPage.classList.add('fade-in');
+            } else {
+                console.error(`Error: Page with ID '${pageId}' not found.`);
+            }
 
-  <footer class="footer">
-    <p>© 2025 Rafael Lopes | Music Therapy Practice</p>
-  </footer>
+            navLinks.forEach(link => {
+                link.classList.remove('bg-gray-800', 'text-white');
+                if (link.getAttribute('href') === '#' + pageId) {
+                    link.classList.add('bg-gray-800', 'text-white');
+                }
+            });
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showServiceDetail(serviceKey) {
+            const data = pageData[serviceKey];
+            if (data) {
+                serviceDetailIcon.textContent = data.icon;
+                serviceDetailTitle.textContent = data.title;
+                serviceDetailContent.innerHTML = data.content;
+                showPage('service-detail-page');
+            }
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetPageId = this.getAttribute('href').substring(1);
+                showPage(targetPageId);
+            });
+        });
+
+        showPage('home-page');
+    </script>
 </body>
 </html>
