@@ -171,6 +171,7 @@ tbody tr:hover{background:var(--page);}
   <div class="tabs">
     <button class="tab active" data-tab="comp">Composition</button>
     <button class="tab" data-tab="equity">Equity</button>
+    <button class="tab" data-tab="structure">Pay Structure</button>
   </div>
 
   <!-- COMPOSITION -->
@@ -251,6 +252,36 @@ tbody tr:hover{background:var(--page);}
       <h3>Compression — manager vs their reports</h3>
       <div class="desc">Top 15 managers by # of same-country reports. Flag = manager base &lt; 1.15× those reports' median (differential compressed, not inverted).</div>
       <div id="tbl-mgr"></div>
+    </div>
+  </div>
+
+  <!-- PAY STRUCTURE -->
+  <div class="panel" id="panel-structure">
+    <div class="defbox">
+      <div class="defbox-h">Pay structure &amp; internal equity</div>
+      <ul>
+        <li><b>Level-progression differentials.</b> Median % step-up in base from each level to the one above, computed <i>within each country</i> then aggregated across them. Healthy structures keep consistent differentials; a thin or negative step signals compression or inversion at the cohort scale.</li>
+        <li><b>Pay mix (bonus leverage).</b> Bonus as a share of base by level. Variable pay should lever up with seniority.</li>
+        <li><b>Compa-ratio spread.</b> Each person's base ÷ the median base of their country-and-level cohort. Centred on 1.0 by construction — the <i>width</i> of the spread shows how tightly each level is managed; below 0.8 or above 1.2 are outliers worth review.</li>
+      </ul>
+      <div class="defbox-note">Same country-scoped, median-actual-base basis as the equity views (the source has no salary-range midpoints). Compa-ratio excludes country×level cohorts smaller than 5; differentials use only countries with at least 3 people at both adjacent levels.</div>
+    </div>
+    <div class="grid g2" style="margin-bottom:18px;">
+      <div class="card">
+        <h3>Level-Progression Differentials</h3>
+        <div class="desc">Median base uplift from each level to the next, aggregated across countries. Amber = compressed (&lt; 10%), red = inverted (&lt; 0%).</div>
+        <div id="chart-ladder"></div>
+      </div>
+      <div class="card">
+        <h3>Pay Mix — Bonus Leverage</h3>
+        <div class="desc">Median bonus as a percentage of base, by level. Leverage should rise with seniority.</div>
+        <div id="chart-bonus"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Compa-Ratio Spread</h3>
+      <div class="desc">Base ÷ country-and-level median, distributed by level. Box = P25–P75, whisker = P10–P90, line = median; dashed 1.0× reference.</div>
+      <div id="chart-compa"></div>
     </div>
   </div>
 
@@ -670,12 +701,106 @@ function renderMgr(rows){
     :'<div class="empty">No managers in this selection.</div>';
 }
 
+// ---------- pay structure: level-progression differentials ----------
+function renderLadder(rows){
+  const active=rows.filter(r=>r.status==='Active');
+  const g={};
+  active.forEach(r=>{const c=(g[r.country]=g[r.country]||{});(c[r.level]=c[r.level]||[]).push(r.baseUsd);});
+  const MINL=3, steps=[];
+  for(let rank=2;rank<=LEVELS.length;rank++){
+    const lower=LEVELS.find(l=>l.rank===rank), higher=LEVELS.find(l=>l.rank===rank-1);
+    if(!lower||!higher)continue;
+    const diffs=[];
+    for(const c in g){
+      const lo=g[c][lower.name], hi=g[c][higher.name];
+      if(lo&&hi&&lo.length>=MINL&&hi.length>=MINL){
+        const ml=median(lo.slice().sort((a,b)=>a-b)), mh=median(hi.slice().sort((a,b)=>a-b));
+        if(ml>0)diffs.push((mh-ml)/ml);
+      }
+    }
+    if(!diffs.length)continue;
+    diffs.sort((a,b)=>a-b);
+    const d=median(diffs), color=d<0?'var(--critical)':d<0.10?'var(--warning)':'var(--series-1)';
+    steps.push({label:`${LEVEL_SHORT[lower.name]} → ${LEVEL_SHORT[higher.name]}`,value:d*100,color,
+      tip:`<div class="t-t">${lower.name} → ${higher.name}</div><div class="t-r">Median uplift ${(d*100).toFixed(0)}% · ${diffs.length} countr${diffs.length===1?'y':'ies'}</div>`});
+  }
+  hbar('#chart-ladder',steps,{fmt:v=>(v>=0?'+':'')+v.toFixed(0)+'%',padL:120});
+}
+
+// ---------- pay structure: bonus leverage ----------
+function renderBonus(rows){
+  const active=rows.filter(r=>r.status==='Active');
+  const arr=LEVEL_ORDER.filter(l=>active.some(r=>r.level===l)).map(l=>{
+    const rs=active.filter(r=>r.level===l);
+    const ratios=rs.map(r=>r.baseUsd>0?(r.compUsd-r.baseUsd)/r.baseUsd:0).sort((a,b)=>a-b);
+    const mb=median(rs.map(r=>r.baseUsd).sort((a,b)=>a-b));
+    const mbo=median(rs.map(r=>r.compUsd-r.baseUsd).sort((a,b)=>a-b));
+    return {label:LEVEL_SHORT[l]||l,full:l,value:median(ratios)*100,mb,mbo,n:rs.length};
+  });
+  hbar('#chart-bonus',arr.map(d=>({label:d.label,value:d.value,color:'var(--series-3)',
+    tip:`<div class="t-t">${d.full}</div><div class="t-r">Median bonus ${d.value.toFixed(0)}% of base<br>Base ${fmtUsdFull(d.mb)} · Bonus ${fmtUsdFull(d.mbo)} · N=${d.n}</div>`})),
+    {fmt:v=>v.toFixed(0)+'%',padL:80});
+}
+
+// ---------- pay structure: compa-ratio spread ----------
+function renderCompa(rows){
+  const active=rows.filter(r=>r.status==='Active');
+  const grp={},nOf={},med={};
+  active.forEach(r=>{const k=r.country+'|'+r.level;(grp[k]=grp[k]||[]).push(r.baseUsd);});
+  for(const k in grp){const s=grp[k].slice().sort((a,b)=>a-b);med[k]=median(s);nOf[k]=s.length;}
+  const MINc=5;
+  const stats=LEVEL_ORDER.map(lv=>{
+    const cr=[];
+    active.filter(r=>r.level===lv).forEach(r=>{const k=r.country+'|'+lv; if(nOf[k]>=MINc&&med[k]>0)cr.push(r.baseUsd/med[k]);});
+    if(cr.length<3)return null;
+    cr.sort((a,b)=>a-b);
+    return {level:lv,short:LEVEL_SHORT[lv]||lv,n:cr.length,
+      p10:percentile(cr,.1),p25:percentile(cr,.25),med:median(cr),p75:percentile(cr,.75),p90:percentile(cr,.9)};
+  }).filter(Boolean);
+  const el=$('#chart-compa'); el.innerHTML='';
+  if(!stats.length){el.innerHTML='<div class="empty">Not enough cohort data for this selection.</div>';return;}
+  const rowH=38,gap=12,padL=90,padR=24,padT=26,padB=28;
+  const h=padT+padB+stats.length*(rowH+gap)-gap;
+  const w=el.clientWidth||760, plotW=w-padL-padR;
+  const minV=Math.min(0.7,...stats.map(s=>s.p10))-0.02, maxV=Math.max(1.3,...stats.map(s=>s.p90))+0.02;
+  const x=v=>padL+plotW*(v-minV)/(maxV-minV);
+  const svg=svel('svg',{viewBox:`0 0 ${w} ${h}`,height:h});
+  // ticks
+  const t0=Math.ceil(minV/0.2)*0.2;
+  for(let tv=t0;tv<=maxV+1e-9;tv+=0.2){
+    const tx=x(tv);
+    svg.appendChild(svel('line',{x1:tx,y1:padT-6,x2:tx,y2:h-padB,class:'gridline'}));
+    const t=svel('text',{x:tx,y:h-padB+16,'text-anchor':'middle',class:'axis-tick'});
+    t.textContent=tv.toFixed(1)+'×'; svg.appendChild(t);
+  }
+  // 1.0 reference
+  const rx=x(1);
+  svg.appendChild(svel('line',{x1:rx,y1:padT-6,x2:rx,y2:h-padB,stroke:'var(--axis)','stroke-width':1.5,'stroke-dasharray':'4 3'}));
+  stats.forEach((s,i)=>{
+    const y=padT+i*(rowH+gap), cy=y+rowH/2;
+    const lb=svel('text',{x:padL-10,y:cy+4,'text-anchor':'end',class:'bar-label'}); lb.textContent=s.short; svg.appendChild(lb);
+    svg.appendChild(svel('line',{x1:x(s.p10),y1:cy,x2:x(s.p90),y2:cy,stroke:'var(--axis)','stroke-width':2}));
+    svg.appendChild(svel('line',{x1:x(s.p10),y1:cy-6,x2:x(s.p10),y2:cy+6,stroke:'var(--axis)','stroke-width':2}));
+    svg.appendChild(svel('line',{x1:x(s.p90),y1:cy-6,x2:x(s.p90),y2:cy+6,stroke:'var(--axis)','stroke-width':2}));
+    const bx=x(s.p25), bw=Math.max(x(s.p75)-x(s.p25),2);
+    svg.appendChild(svel('rect',{x:bx,y:y+7,width:bw,height:rowH-14,rx:4,fill:'var(--series-2)','fill-opacity':.28,stroke:'var(--series-2)','stroke-width':1.5}));
+    svg.appendChild(svel('line',{x1:x(s.med),y1:y+7,x2:x(s.med),y2:y+rowH-7,stroke:'var(--series-2)','stroke-width':2.5}));
+    const hz=svel('rect',{x:padL,y:y,width:plotW,height:rowH,fill:'transparent'});
+    bindTip(hz,`<div class="t-t">${s.level}</div><div class="t-r">N = ${fmtN(s.n)}<br>
+      P10 ${s.p10.toFixed(2)}× · P25 ${s.p25.toFixed(2)}×<br><b style="color:var(--text-primary)">Median ${s.med.toFixed(2)}×</b><br>
+      P75 ${s.p75.toFixed(2)}× · P90 ${s.p90.toFixed(2)}×</div>`);
+    svg.appendChild(hz);
+  });
+  el.appendChild(svg);
+}
+
 // ---------- master render ----------
 function render(){
   const rows=filtered();
   renderKPIs(rows);
   renderCountry(rows); renderLevel(rows); renderGmt(rows); renderArr(rows); renderEntities(rows);
   renderBox(rows); renderHeat(rows); renderInversions(rows); renderPersonInv(rows); renderMgr(rows);
+  renderLadder(rows); renderBonus(rows); renderCompa(rows);
 }
 
 // ---------- wiring ----------
