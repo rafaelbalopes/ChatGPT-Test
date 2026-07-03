@@ -148,6 +148,7 @@ tbody tr:hover{background:var(--page);}
     <div class="field"><label>Global Level</label><select id="f-level"></select></div>
     <div class="field"><label>GMT Area</label><select id="f-gmt"></select></div>
     <div class="field"><label>Arrangement</label><select id="f-arr"></select></div>
+    <div class="field"><label>FTE</label><select id="f-fte"></select></div>
     <div class="reset"><button id="resetBtn">Reset filters</button></div>
   </div>
 
@@ -265,7 +266,7 @@ function percentile(sorted,p){
 const median=s=>percentile(s,0.5);
 
 // ---------- filters ----------
-const F={status:'Active',country:'All',level:'All',gmt:'All',arr:'All'};
+const F={status:'Active',country:'All',level:'__exPart',gmt:'All',arr:'All',fte:'51'};
 function uniq(key){return Array.from(new Set(ROWS.map(r=>r[key]).filter(Boolean)));}
 function buildSelect(id,vals,cur,sort){
   const sel=$(id); sel.innerHTML='';
@@ -285,26 +286,45 @@ function initFilters(){
   const cc={};ROWS.forEach(r=>cc[r.country]=(cc[r.country]||0)+1);
   const countries=uniq('country').sort((a,b)=>cc[b]-cc[a]);
   buildSelect('#f-country',countries,F.country,false);
-  buildSelect('#f-level',LEVEL_ORDER.filter(l=>uniq('level').includes(l)),F.level,false);
+  // Global Level: two aggregate options (Partner excluded by default) + each level
+  (function(){
+    const sel=$('#f-level'); sel.innerHTML='';
+    const opts=[['__exPart','All levels (excl. Partner)'],['__all','All levels (incl. Partner)']];
+    LEVEL_ORDER.filter(l=>uniq('level').includes(l)).forEach(l=>opts.push([l,LEVEL_SHORT[l]||l]));
+    opts.forEach(([v,lab])=>{const o=document.createElement('option');o.value=v;o.textContent=lab;
+      if(v===F.level)o.selected=true;sel.appendChild(o);});
+  })();
   buildSelect('#f-gmt',uniq('gmt'),F.gmt,true);
   buildSelect('#f-arr',uniq('arr'),F.arr,true);
+  // FTE bands
+  (function(){
+    const sel=$('#f-fte'); sel.innerHTML='';
+    [['51','51% and above'],['all','All FTE'],['100','100% (full-time)'],['50','50% and below']]
+      .forEach(([v,lab])=>{const o=document.createElement('option');o.value=v;o.textContent=lab;
+        if(v===F.fte)o.selected=true;sel.appendChild(o);});
+  })();
   $('#f-status').onchange=e=>{F.status=e.target.value;render();};
   $('#f-country').onchange=e=>{F.country=e.target.value;render();};
   $('#f-level').onchange=e=>{F.level=e.target.value;render();};
   $('#f-gmt').onchange=e=>{F.gmt=e.target.value;render();};
   $('#f-arr').onchange=e=>{F.arr=e.target.value;render();};
-  $('#resetBtn').onclick=()=>{Object.assign(F,{status:'Active',country:'All',level:'All',gmt:'All',arr:'All'});
-    $('#f-status').value='Active';$('#f-country').value='All';$('#f-level').value='All';
-    $('#f-gmt').value='All';$('#f-arr').value='All';render();};
+  $('#f-fte').onchange=e=>{F.fte=e.target.value;render();};
+  $('#resetBtn').onclick=()=>{Object.assign(F,{status:'Active',country:'All',level:'__exPart',gmt:'All',arr:'All',fte:'51'});
+    $('#f-status').value='Active';$('#f-country').value='All';$('#f-level').value='__exPart';
+    $('#f-gmt').value='All';$('#f-arr').value='All';$('#f-fte').value='51';render();};
 }
-function filtered(){
-  return ROWS.filter(r=>
-    (F.status==='All'||r.status===F.status)&&
+function levelOk(r){return F.level==='__all'?true:F.level==='__exPart'?r.level!=='Partner':r.level===F.level;}
+function fteOk(r){const f=r.fte==null?100:r.fte;
+  return F.fte==='all'?true:F.fte==='51'?f>=51:F.fte==='100'?f>=100:F.fte==='50'?f<=50:true;}
+function passes(r){
+  return (F.status==='All'||r.status===F.status)&&
     (F.country==='All'||r.country===F.country)&&
-    (F.level==='All'||r.level===F.level)&&
+    levelOk(r)&&
     (F.gmt==='All'||r.gmt===F.gmt)&&
-    (F.arr==='All'||r.arr===F.arr));
+    (F.arr==='All'||r.arr===F.arr)&&
+    fteOk(r);
 }
+function filtered(){return ROWS.filter(passes);}
 
 // ---------- tooltip ----------
 const tip=$('#tip');
@@ -498,7 +518,8 @@ function renderHeat(rows){
   const active=rows.filter(r=>r.status==='Active');
   const cc={};active.forEach(r=>cc[r.country]=(cc[r.country]||0)+1);
   const countries=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,10).map(e=>e[0]);
-  const levels=LEVEL_ORDER;
+  const present=new Set(active.map(r=>r.level));
+  const levels=LEVEL_ORDER.filter(l=>present.has(l));
   const cell={}; let maxMed=0;
   countries.forEach(c=>{levels.forEach(l=>{
     const vals=active.filter(r=>r.country===c&&r.level===l).map(r=>r.baseUsd).sort((a,b)=>a-b);
@@ -566,10 +587,12 @@ function renderInversions(rows){
 // ---------- equity: manager sanity ----------
 function renderMgr(rows){
   const active=rows.filter(r=>r.status==='Active');
+  const inScope=new Set(active.map(r=>r.id));
   const reports={};
   active.forEach(r=>{if(r.pmid){(reports[r.pmid]=reports[r.pmid]||[]).push(r);}});
   let mgrs=Object.entries(reports).map(([pmid,reps])=>{
     const mgr=byId[pmid]; if(!mgr)return null;
+    if(!inScope.has(mgr.id))return null; // manager must also be in the current view (e.g. non-Partner by default)
     const rb=reps.map(r=>r.baseUsd).sort((a,b)=>a-b);
     const medRep=median(rb);
     return {pmid,name:mgr.pm||'—',country:mgr.country,level:mgr.level,base:mgr.baseUsd,
