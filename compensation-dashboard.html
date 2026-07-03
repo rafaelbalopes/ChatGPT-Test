@@ -175,6 +175,7 @@ tbody tr:hover{background:var(--page);}
       <input type="file" id="fileInput" accept=".xlsx,.csv" hidden>
     </label>
     <span class="ds-status" id="dataStatus">Showing the bundled sample data.</span>
+    <button class="ds-reset" id="exportBtn">⬇ Export current view (CSV)</button>
     <button class="ds-reset" id="resetData" hidden>Reset to sample</button>
     <span class="ds-privacy">🔒 Read in your browser — nothing is uploaded.</span>
   </div>
@@ -1296,7 +1297,29 @@ async function handleFile(file){
     setDataStatus('Could not load: '+err.message,'err');
   }
 }
+function csvCell(v){v=v==null?'':String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function exportCSV(){
+  const rows=filtered();
+  const cols=['GPID','Country','GMT Area','Global Level','Arrangement','Status','FTE %','Currency',
+    'Base (local)','Bonus (local)','Base USD','Comp USD','Gender','Band Min (local)','Band Mid (local)','Band Max (local)',
+    'Compa-Ratio','Range Penetration %','Band Position','Perf Mgr ID','Perf Mgr Name'];
+  const gmap={M:'Male',F:'Female',U:'Unknown'};
+  const lines=[cols.join(',')];
+  rows.forEach(r=>{
+    const b=rangeLoc(r), compa=compaMid(r), pen=penet(r), pos=bandPos(r);
+    lines.push([r.id,r.country,r.gmt,r.level,r.arr,r.status,r.fte,r.cur,
+      r.base,r.comp-r.base,r.baseUsd,r.compUsd,gmap[r.gender]||r.gender||'',
+      b?b[0]:'',b?b[1]:'',b?b[2]:'',
+      compa!=null?compa.toFixed(3):'',pen!=null?pen.toFixed(1):'',pos||'',
+      r.pmid||'',r.pm||''].map(csvCell).join(','));
+  });
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='kpmgi-compensation-export.csv';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
 function initLoader(){
+  $('#exportBtn').onclick=exportCSV;
   $('#fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f);e.target.value='';});
   $('#resetData').onclick=()=>{loadDataset(SAMPLE_ROWS,SAMPLE_RANGES);
     setDataStatus('Showing the bundled sample data ('+fmtN(SAMPLE_ROWS.length)+' records).','');$('#resetData').hidden=true;};
