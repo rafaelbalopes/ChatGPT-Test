@@ -144,6 +144,17 @@ tbody tr:hover{background:var(--page);}
 .defbox li b{color:var(--text-primary);font-weight:600;}
 .defbox-note{margin-top:11px;font-size:12px;color:var(--muted);line-height:1.5;border-top:1px solid var(--grid);padding-top:10px;}
 .subhead{font-size:17px;font-weight:700;letter-spacing:-.01em;margin:26px 2px 14px;}
+.datasrc{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px;font-size:13px;}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;background:var(--series-1);color:#fff;font-weight:600;
+  font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid transparent;white-space:nowrap;}
+.upload-btn:hover{filter:brightness(1.06);}
+.ds-status{color:var(--text-secondary);}
+.ds-status.ds-ok{color:var(--good);font-weight:500;} .ds-status.ds-err{color:var(--critical);font-weight:500;}
+.ds-status.ds-busy{color:var(--muted);}
+.ds-reset{background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);
+  font-size:12.5px;padding:6px 12px;cursor:pointer;font-family:inherit;}
+.ds-reset:hover{border-color:var(--axis);color:var(--text-primary);}
+.ds-privacy{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap;}
 .foot{margin-top:36px;font-size:12px;color:var(--muted);text-align:center;}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
 </style>
@@ -158,6 +169,15 @@ tbody tr:hover{background:var(--page);}
     </div>
     <button class="theme-btn" id="themeBtn">◑ Theme</button>
   </header>
+
+  <div class="datasrc">
+    <label class="upload-btn">⬆ Load your data
+      <input type="file" id="fileInput" accept=".xlsx,.csv" hidden>
+    </label>
+    <span class="ds-status" id="dataStatus">Showing the bundled sample data.</span>
+    <button class="ds-reset" id="resetData" hidden>Reset to sample</button>
+    <span class="ds-privacy">🔒 Read in your browser — nothing is uploaded.</span>
+  </div>
 
   <div class="filters" id="filters">
     <div class="field"><label>Status</label><select id="f-status"></select></div>
@@ -359,12 +379,13 @@ const DATA={"fx":{"AED":0.27,"AUD":0.66,"BRL":0.2,"CAD":0.73,"CHF":1.13,"CNY":0.
 <script>
 "use strict";
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
-const ROWS=DATA.rows, EU=new Set(DATA.eu);
+let ROWS=DATA.rows; const EU=new Set(DATA.eu);
+const SAMPLE_ROWS=DATA.rows, SAMPLE_RANGES=DATA.ranges||{};
 const LEVELS=DATA.levels.map(l=>({name:l[0],rank:l[1],short:l[2]}));
 const LEVEL_ORDER=LEVELS.map(l=>l.name);
 const LEVEL_RANK={}, LEVEL_SHORT={};
 LEVELS.forEach(l=>{LEVEL_RANK[l.name]=l.rank;LEVEL_SHORT[l.name]=l.short;});
-const byId={}; ROWS.forEach(r=>byId[r.id]=r);
+let byId={}; function indexRows(){byId={};ROWS.forEach(r=>byId[r.id]=r);} indexRows();
 
 // ---------- formatting ----------
 const fmtN=n=>n.toLocaleString('en-US');
@@ -383,7 +404,7 @@ function computeMoney(rows){
 const payBase=r=>MONEY.eff==='local'?r['base']:r['baseUsd'];
 const payComp=r=>MONEY.eff==='local'?r['comp']:r['compUsd'];
 // ---- salary ranges (PLACEHOLDER mock bands, per country x level, stored local) ----
-const RANGES=DATA.ranges||{};
+let RANGES=DATA.ranges||{};
 const fxOf=c=>DATA.fx[c]||1;
 const rangeLoc=r=>RANGES[r.country+'|'+r.level];                       // [min,mid,max] local
 function rangeDisp(r){const b=rangeLoc(r); if(!b)return null; if(MONEY.eff==='local')return b;
@@ -1139,7 +1160,149 @@ function initTheme(){
 }
 window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(render,150);});
 
-initFilters(); initToggles(); initTabs(); initTheme();
+// ================= LOCAL DATA LOADER (nothing leaves the browser) =================
+const NAME_GENDER={Aiden:'M',Aisha:'F',Alex:'M',Ana:'F',Bashar:'M',Camila:'F',Chen:'M',David:'M',
+  Diego:'M',Emma:'F',Eva:'F',Felix:'M',Hannah:'F',Hiroshi:'M',Ines:'F',Jordan:'M',Karim:'M',Lars:'M',
+  Layla:'F',Lina:'F',Lukas:'M',Marco:'M',Marta:'F',Maya:'F',Michael:'M',Niko:'M',Noah:'M',Nora:'F',
+  Olivia:'F',Pavel:'M',Priya:'F',Ravi:'M',Sam:'M',Sarah:'F',Sofia:'F',Sophie:'F',Tom:'M',Wei:'M',Yuki:'F',Zara:'F'};
+const FXMAP=DATA.fx;
+// --- xlsx (zip) reading, dependency-free, fully local ---
+async function inflateRaw(bytes){
+  const s=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+async function unzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); let eocd=-1;
+  for(let i=buf.byteLength-22;i>=0;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error('That does not look like a valid .xlsx file.');
+  const cdOff=dv.getUint32(eocd+16,true), cdCnt=dv.getUint16(eocd+10,true);
+  const files={}; let p=cdOff;
+  for(let i=0;i<cdCnt;i++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true), compSize=dv.getUint32(p+20,true);
+    const nL=dv.getUint16(p+28,true), eL=dv.getUint16(p+30,true), cL=dv.getUint16(p+32,true);
+    const lho=dv.getUint32(p+42,true);
+    files[new TextDecoder().decode(u8.subarray(p+46,p+46+nL))]={method,compSize,lho};
+    p+=46+nL+eL+cL;
+  }
+  return {dv,u8,files};
+}
+async function readEntry(z,name){
+  const f=z.files[name]; if(!f)return null;
+  const nL=z.dv.getUint16(f.lho+26,true), eL=z.dv.getUint16(f.lho+28,true), ds=f.lho+30+nL+eL;
+  const comp=z.u8.subarray(ds,ds+f.compSize);
+  const raw=f.method===0?comp:await inflateRaw(comp);
+  return new TextDecoder('utf-8').decode(raw);
+}
+function colIdx(ref){let c=0;for(let i=0;i<ref.length;i++){const ch=ref.charCodeAt(i);if(ch>=65&&ch<=90)c=c*26+(ch-64);else break;}return c-1;}
+function sheetGrid(xml,shared){
+  const doc=new DOMParser().parseFromString(xml,'application/xml');
+  const rowsEl=doc.getElementsByTagName('row'), out=[];
+  for(let i=0;i<rowsEl.length;i++){
+    const cs=rowsEl[i].getElementsByTagName('c'), arr=[];
+    for(let j=0;j<cs.length;j++){
+      const c=cs[j], ci=colIdx(c.getAttribute('r')||''), t=c.getAttribute('t');
+      const vE=c.getElementsByTagName('v')[0], isE=c.getElementsByTagName('is')[0]; let v='';
+      if(t==='s'){v=shared[parseInt(vE?vE.textContent:'0',10)]||'';}
+      else if(t==='inlineStr'||isE){const ts=(isE||c).getElementsByTagName('t');let s='';for(let k=0;k<ts.length;k++)s+=ts[k].textContent;v=s;}
+      else if(vE){v=vE.textContent;const num=Number(v);if(v.trim()!==''&&!isNaN(num))v=num;}
+      if(ci>=0)arr[ci]=v;
+    }
+    out.push(arr);
+  }
+  return out;
+}
+async function parseXlsx(buf){
+  if(typeof DecompressionStream==='undefined')throw new Error('Your browser cannot unzip .xlsx here — please save the file as CSV and upload that.');
+  const z=await unzip(buf);
+  const ssXml=await readEntry(z,'xl/sharedStrings.xml'); const shared=[];
+  if(ssXml){const d=new DOMParser().parseFromString(ssXml,'application/xml'),sis=d.getElementsByTagName('si');
+    for(let i=0;i<sis.length;i++){const ts=sis[i].getElementsByTagName('t');let s='';for(let j=0;j<ts.length;j++)s+=ts[j].textContent;shared.push(s);}}
+  const names=Object.keys(z.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort();
+  for(const n of names){const g=sheetGrid(await readEntry(z,n),shared);
+    if(g.length&&g[0].some(h=>String(h).trim().toUpperCase()==='GPID'))return g;}
+  throw new Error('No sheet with a “GPID” header column was found in that workbook.');
+}
+// --- csv ---
+function parseCSV(text){
+  const rows=[]; let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch==='"')q=true; else if(ch===','){row.push(cur);cur='';}
+      else if(ch==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+      else if(ch==='\r'){} else cur+=ch; } }
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  return rows.map(r=>r.map(v=>{const n=Number(v);return v.trim()!==''&&!isNaN(n)?n:v;}));
+}
+// --- grid -> dashboard rows ---
+function gridToRows(grid){
+  const hdr=grid[0].map(h=>String(h==null?'':h).trim());
+  const idx={}; hdr.forEach((h,i)=>{idx[h.toLowerCase()]=i;});
+  const col=(...names)=>{for(const nm of names){const i=idx[nm.toLowerCase()];if(i!=null)return i;}return -1;};
+  const need={id:col('GPID'),country:col('Country'),level:col('Global Level'),cur:col('Local Currency'),base:col('Local FTE Base Pay')};
+  const missing=Object.entries(need).filter(([,v])=>v<0).map(([k])=>k);
+  if(missing.length)throw new Error('Missing required column(s): '+missing.join(', ')+'. Expected the KPMGI standard export headers.');
+  const c={...need,
+    status:col('Employee Status'),gmt:col('GMT Area'),cc:col('Cost Center'),entity:col('Employing Entity'),
+    arr:col('Nature of Arrangement'),pmid:col('KPMGI Performance Manager User ID'),
+    pmf:col('KPMGI Performance Manager First Name'),pml:col('KPMGI Performance Manager Last Name'),
+    fte:col('KPMGI FTE Percent'),bonus:col('Local FTE Bonus'),
+    first:col('Preferred First Name','KPMG User First Name'),gender:col('Gender','Sex')};
+  const g=v=>v==null?'':v;
+  const rows=[];
+  for(let i=1;i<grid.length;i++){
+    const r=grid[i]; if(!r||r[c.id]==null||r[c.id]==='')continue;
+    const base=Number(r[c.base]); if(isNaN(base))continue;
+    const bonus=c.bonus>=0?Number(r[c.bonus])||0:0;
+    const cur=g(r[c.cur])||'USD', rate=FXMAP[cur]||1;
+    const first=String(g(r[c.first])).trim().split(/\s+/)[0];
+    let gender=c.gender>=0?String(g(r[c.gender])).trim().toUpperCase().charAt(0):'';
+    if(gender!=='M'&&gender!=='F')gender=NAME_GENDER[first]||'U';
+    rows.push({id:String(g(r[c.id])),country:g(r[c.country]),status:g(r[c.status])||'Active',
+      level:g(r[c.level]),gmt:g(r[c.gmt]),cc:g(r[c.cc]),entity:g(r[c.entity]),arr:g(r[c.arr]),
+      pmid:g(r[c.pmid]),pm:(g(r[c.pmf])+' '+g(r[c.pml])).trim(),gender,cur,fte:Number(r[c.fte])||100,
+      base:Math.round(base),comp:Math.round(base+bonus),
+      baseUsd:Math.round(base*rate),compUsd:Math.round((base+bonus)*rate)});
+  }
+  if(!rows.length)throw new Error('No data rows found under the header.');
+  return rows;
+}
+function computeRanges(rows){
+  const coh={}; rows.forEach(r=>{(coh[r.country+'|'+r.level]=coh[r.country+'|'+r.level]||[]).push(r.base);});
+  const out={};
+  for(const k in coh){const v=coh[k].slice().sort((a,b)=>a-b);
+    const mid=Math.round(median(v)/5000)*5000||Math.round(median(v));
+    let mn=percentile(v,.05),mx=percentile(v,.95); if(mx<=mn){mn=mid*0.85;mx=mid*1.15;}
+    out[k]=[Math.round(mn),mid,Math.round(mx)];}
+  return out;
+}
+function loadDataset(rows,ranges){
+  ROWS=rows; RANGES=ranges||computeRanges(rows); indexRows();
+  Object.assign(F,{status:'Active',country:'All',level:'__exPart',gmt:'All',arr:'All',fte:'51'}); CURMODE='usd';
+  initFilters(); $('#foot-n').textContent=fmtN(ROWS.length); render();
+}
+function setDataStatus(msg,kind){const el=$('#dataStatus');el.textContent=msg;el.className='ds-status'+(kind?' ds-'+kind:'');}
+async function handleFile(file){
+  try{
+    setDataStatus('Reading '+file.name+' …','busy');
+    let grid;
+    if(/\.csv$/i.test(file.name)) grid=parseCSV(await file.text());
+    else grid=await parseXlsx(await file.arrayBuffer());
+    const rows=gridToRows(grid);
+    loadDataset(rows,null);
+    setDataStatus('Loaded '+file.name+' — '+fmtN(rows.length)+' records, read in your browser.','ok');
+    $('#resetData').hidden=false;
+  }catch(err){
+    setDataStatus('Could not load: '+err.message,'err');
+  }
+}
+function initLoader(){
+  $('#fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f);e.target.value='';});
+  $('#resetData').onclick=()=>{loadDataset(SAMPLE_ROWS,SAMPLE_RANGES);
+    setDataStatus('Showing the bundled sample data ('+fmtN(SAMPLE_ROWS.length)+' records).','');$('#resetData').hidden=true;};
+}
+
+initFilters(); initToggles(); initTabs(); initTheme(); initLoader();
 $('#foot-n').textContent=fmtN(ROWS.length);
 render();
 </script>
