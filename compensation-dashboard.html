@@ -1242,6 +1242,24 @@ function parseCSV(text){
   if(cur!==''||row.length){row.push(cur);rows.push(row);}
   return rows.map(r=>r.map(v=>{const n=Number(v);return v.trim()!==''&&!isNaN(n)?n:v;}));
 }
+// normalize a Local Currency value to an ISO code (exports often read "CAD - Canadian Dollar")
+const CUR_NAMES={'CANADIAN DOLLAR':'CAD','US DOLLAR':'USD','UNITED STATES DOLLAR':'USD','EURO':'EUR',
+  'BRITISH POUND':'GBP','POUND STERLING':'GBP','STERLING':'GBP','POUND':'GBP','AUSTRALIAN DOLLAR':'AUD',
+  'SINGAPORE DOLLAR':'SGD','SWISS FRANC':'CHF','JAPANESE YEN':'JPY','YEN':'JPY','INDIAN RUPEE':'INR',
+  'CHINESE YUAN':'CNY','YUAN':'CNY','RENMINBI':'CNY','SOUTH AFRICAN RAND':'ZAR','RAND':'ZAR',
+  'BRAZILIAN REAL':'BRL','REAL':'BRL','POLISH ZLOTY':'PLN','ZLOTY':'PLN','ROMANIAN LEU':'RON','LEU':'RON',
+  'SERBIAN DINAR':'RSD','HUNGARIAN FORINT':'HUF','FORINT':'HUF','NEW TAIWAN DOLLAR':'TWD','TAIWAN DOLLAR':'TWD',
+  'KOREAN WON':'KRW','WON':'KRW','KUWAITI DINAR':'KWD','UAE DIRHAM':'AED','DIRHAM':'AED','URUGUAYAN PESO':'UYU'};
+function normCur(raw){
+  const s=String(raw==null?'':raw).trim().toUpperCase(); if(!s)return 'USD';
+  if(FXMAP[s]!=null)return s;                                  // already an ISO code
+  const lead=(s.match(/^[A-Z]{3}/)||[])[0];                    // "CAD - Canadian Dollar" -> CAD
+  if(lead&&FXMAP[lead]!=null)return lead;
+  const tok=s.split(/[^A-Z]+/).find(t=>t.length===3&&FXMAP[t]!=null);
+  if(tok)return tok;
+  for(const nm in CUR_NAMES){if(s.includes(nm))return CUR_NAMES[nm];}
+  return s;                                                    // unknown; keep raw (rate 1.0)
+}
 // --- grid -> dashboard rows ---
 function gridToRows(grid){
   const hdr=grid[0].map(h=>String(h==null?'':h).trim());
@@ -1262,7 +1280,7 @@ function gridToRows(grid){
     const r=grid[i]; if(!r||r[c.id]==null||r[c.id]==='')continue;
     const base=Number(r[c.base]); if(isNaN(base))continue;
     const bonus=c.bonus>=0?Number(r[c.bonus])||0:0;
-    const cur=g(r[c.cur])||'USD', rate=FXMAP[cur]||1;
+    const cur=normCur(g(r[c.cur])), rate=FXMAP[cur]||1;
     const first=String(g(r[c.first])).trim().split(/\s+/)[0];
     let gender=c.gender>=0?String(g(r[c.gender])).trim().toUpperCase().charAt(0):'';
     if(gender!=='M'&&gender!=='F')gender=NAME_GENDER[first]||'U';
