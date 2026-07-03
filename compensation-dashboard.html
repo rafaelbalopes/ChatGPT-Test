@@ -101,6 +101,7 @@ svg{display:block;width:100%;overflow:visible;}
 .bar-rect:hover{opacity:.82;}
 
 /* table */
+.tscroll{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;
   letter-spacing:.03em;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -130,6 +131,14 @@ tbody tr:hover{background:var(--page);}
 .caveat{background:color-mix(in srgb,var(--warning) 12%,transparent);border:1px solid color-mix(in srgb,var(--warning) 40%,transparent);
   border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--text-secondary);margin-bottom:20px;}
 .caveat b{color:var(--text-primary);}
+.defbox{background:var(--surface-1);border:1px solid var(--border);border-left:3px solid var(--series-1);
+  border-radius:12px;padding:16px 18px;margin-bottom:18px;box-shadow:var(--shadow);}
+.defbox-h{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:9px;}
+.defbox ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;}
+.defbox li{font-size:13px;color:var(--text-secondary);line-height:1.5;}
+.defbox li b{color:var(--text-primary);font-weight:600;}
+.defbox-note{margin-top:11px;font-size:12px;color:var(--muted);line-height:1.5;border-top:1px solid var(--grid);padding-top:10px;}
+.subhead{font-size:17px;font-weight:700;letter-spacing:-.01em;margin:26px 2px 14px;}
 .foot{margin-top:36px;font-size:12px;color:var(--muted);text-align:center;}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
 </style>
@@ -218,17 +227,30 @@ tbody tr:hover{background:var(--page);}
       <div class="desc">USD median base pay. Darker = higher. Top 10 countries by headcount · blank = no data</div>
       <div id="chart-heat"></div>
     </div>
-    <div class="grid g2">
-      <div class="card">
-        <h3>Top Pay Inversions</h3>
-        <div class="desc">Base pay exceeds the median of the next-higher level in the same country</div>
-        <div id="tbl-inv"></div>
-      </div>
-      <div class="card">
-        <h3>Manager Pay Sanity</h3>
-        <div class="desc">Top 15 managers by # reports. Flag = manager base &lt; 1.15× reports' median</div>
-        <div id="tbl-mgr"></div>
-      </div>
+    <h2 class="subhead">Pay Inversion &amp; Compression</h2>
+    <div class="defbox">
+      <div class="defbox-h">How to read these three</div>
+      <ul>
+        <li><b>Level inversion (structural flag).</b> An individual's base exceeds the <b>median actual base of the level directly above</b>, within the same country and function (GMT area). A cohort-level signal of structural pressure — not, on its own, a confirmed person-level inversion.</li>
+        <li><b>Person-level inversion (the textbook case).</b> A report out-earns <b>their own performance manager</b> — the pay relationship actually flips. The clearest, most defensible inversion signal.</li>
+        <li><b>Compression (the milder cousin).</b> Differentials narrow below what the structure intends <i>without</i> flipping — e.g. a manager paid less than 1.15× their reports' median.</li>
+      </ul>
+      <div class="defbox-note">Tests use <b>median actual base</b> — the source has no salary-range midpoints. Adjacent pay ranges are designed to overlap, so the meaningful bar is the level-above <i>median</i>, not its minimum. A level-inversion flag can occur while the person still earns less than their own manager, which is why it and the person-level test are shown separately.</div>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <h3>Level Inversion — structural flag</h3>
+      <div class="desc">Active base exceeds the median of the level directly above, within the same country &amp; function. Comparison cohorts smaller than 5 are skipped as unreliable. Top 15 by gap.</div>
+      <div id="tbl-inv"></div>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <h3>Person-Level Inversion — report out-earns their manager</h3>
+      <div class="desc">Active employees whose base exceeds their own performance manager's base — a genuine pay-relationship flip. Top 15 by gap.</div>
+      <div id="tbl-pinv"></div>
+    </div>
+    <div class="card">
+      <h3>Compression — manager vs their reports</h3>
+      <div class="desc">Top 15 managers by # reports. Flag = manager base &lt; 1.15× their reports' median (differential compressed, not inverted).</div>
+      <div id="tbl-mgr"></div>
     </div>
   </div>
 
@@ -562,31 +584,58 @@ function renderHeat(rows){
   el.appendChild(svg);
 }
 
-// ---------- equity: inversions ----------
+// ---------- equity: level inversion (structural, cohort flag) ----------
+const MIN_COHORT=5;
 function renderInversions(rows){
   const active=rows.filter(r=>r.status==='Active');
-  // median base per country+level
+  // median actual base per country x function x level
   const grp={};
-  active.forEach(r=>{const k=r.country+'|'+r.level;(grp[k]=grp[k]||[]).push(r.baseUsd);});
-  const medOf={}; for(const k in grp){medOf[k]=median(grp[k].slice().sort((a,b)=>a-b));}
+  active.forEach(r=>{const k=r.country+'|'+r.gmt+'|'+r.level;(grp[k]=grp[k]||[]).push(r.baseUsd);});
+  const medOf={},nOf={};
+  for(const k in grp){const s=grp[k].slice().sort((a,b)=>a-b);medOf[k]=median(s);nOf[k]=s.length;}
   const inv=[];
   active.forEach(r=>{
     const rank=LEVEL_RANK[r.level]; if(!rank||rank<=1)return;
     const higher=LEVELS.find(l=>l.rank===rank-1); if(!higher)return;
-    const key=r.country+'|'+higher.name; const hm=medOf[key];
-    if(hm&&r.baseUsd>hm){inv.push({id:r.id,country:r.country,level:r.level,base:r.baseUsd,
-      cmp:higher.name,hm:hm,gap:(r.baseUsd-hm)/hm});}
+    const key=r.country+'|'+r.gmt+'|'+higher.name; const hm=medOf[key];
+    if(hm&&nOf[key]>=MIN_COHORT&&r.baseUsd>hm){
+      inv.push({id:r.id,country:r.country,func:r.gmt,level:r.level,base:r.baseUsd,
+        cmp:higher.name,hm:hm,n:nOf[key],gap:(r.baseUsd-hm)/hm});}
   });
   inv.sort((a,b)=>b.gap-a.gap);
   const top=inv.slice(0,15);
   const rowsHtml=top.map((d,i)=>`<tr><td>${i+1}</td><td>${d.id}</td><td>${d.country}</td>
-    <td>${LEVEL_SHORT[d.level]||d.level}</td><td class="num">${fmtUsdFull(d.base)}</td>
-    <td>${LEVEL_SHORT[d.cmp]||d.cmp}</td><td class="num">${fmtUsdFull(d.hm)}</td>
+    <td>${d.func}</td><td>${LEVEL_SHORT[d.level]||d.level}</td><td class="num">${fmtUsdFull(d.base)}</td>
+    <td>${LEVEL_SHORT[d.cmp]||d.cmp}</td><td class="num">${fmtUsdFull(d.hm)}</td><td class="num">${d.n}</td>
     <td class="num"><span class="tag tag-flag">+${(d.gap*100).toFixed(0)}%</span></td></tr>`).join('');
   $('#tbl-inv').innerHTML=top.length?
-    `<table><thead><tr><th>#</th><th>GPID</th><th>Country</th><th>Level</th><th class="num">Base USD</th>
-    <th>vs Median of</th><th class="num">Median</th><th class="num">Gap</th></tr></thead><tbody>${rowsHtml}</tbody></table>`
-    :'<div class="empty">No inversions in this selection.</div>';
+    `<div class="tscroll"><table><thead><tr><th>#</th><th>GPID</th><th>Country</th><th>Function</th><th>Level</th>
+    <th class="num">Base USD</th><th>vs Median of</th><th class="num">Median</th><th class="num">Cohort N</th>
+    <th class="num">Gap</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`
+    :'<div class="empty">No level inversions clear the cohort-size guard in this selection.</div>';
+}
+
+// ---------- equity: person-level inversion (report out-earns own manager) ----------
+function renderPersonInv(rows){
+  const active=rows.filter(r=>r.status==='Active');
+  const inv=[];
+  active.forEach(r=>{
+    if(!r.pmid)return; const m=byId[r.pmid]; if(!m)return;
+    if(r.baseUsd>m.baseUsd){
+      inv.push({id:r.id,level:r.level,base:r.baseUsd,mid:r.pmid,mname:r.pm||r.pmid,
+        mlevel:m.level,mbase:m.baseUsd,gap:(r.baseUsd-m.baseUsd)/m.baseUsd});}
+  });
+  inv.sort((a,b)=>b.gap-a.gap);
+  const top=inv.slice(0,15);
+  const rowsHtml=top.map((d,i)=>`<tr><td>${i+1}</td><td>${d.id}</td><td>${LEVEL_SHORT[d.level]||d.level}</td>
+    <td class="num">${fmtUsdFull(d.base)}</td><td>${d.mname}</td><td>${LEVEL_SHORT[d.mlevel]||d.mlevel}</td>
+    <td class="num">${fmtUsdFull(d.mbase)}</td>
+    <td class="num"><span class="tag tag-flag">+${(d.gap*100).toFixed(0)}%</span></td></tr>`).join('');
+  $('#tbl-pinv').innerHTML=top.length?
+    `<div class="tscroll"><table><thead><tr><th>#</th><th>Report GPID</th><th>Report Level</th>
+    <th class="num">Report Base</th><th>Performance Manager</th><th>Mgr Level</th><th class="num">Mgr Base</th>
+    <th class="num">Report over Mgr</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`
+    :'<div class="empty">No report out-earns their manager in this selection.</div>';
 }
 
 // ---------- equity: manager sanity ----------
@@ -623,7 +672,7 @@ function render(){
   const rows=filtered();
   renderKPIs(rows);
   renderCountry(rows); renderLevel(rows); renderGmt(rows); renderArr(rows); renderEntities(rows);
-  renderBox(rows); renderHeat(rows); renderInversions(rows); renderMgr(rows);
+  renderBox(rows); renderHeat(rows); renderInversions(rows); renderPersonInv(rows); renderMgr(rows);
 }
 
 // ---------- wiring ----------
