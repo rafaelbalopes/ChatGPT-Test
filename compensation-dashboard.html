@@ -235,7 +235,7 @@ tbody tr:hover{background:var(--page);}
         <li><b>Person-level inversion (the textbook case).</b> A report out-earns <b>their own performance manager</b> — the pay relationship actually flips. The clearest, most defensible inversion signal.</li>
         <li><b>Compression (the milder cousin).</b> Differentials narrow below what the structure intends <i>without</i> flipping — e.g. a manager paid less than 1.15× their reports' median.</li>
       </ul>
-      <div class="defbox-note">Tests use <b>median actual base</b> — the source has no salary-range midpoints. Adjacent pay ranges are designed to overlap, so the meaningful bar is the level-above <i>median</i>, not its minimum. A level-inversion flag can occur while the person still earns less than their own manager, which is why it and the person-level test are shown separately.</div>
+      <div class="defbox-note">All three compare pay <b>within the same country only</b> — cross-border pairs aren't comparable across differing markets and FX. Tests use <b>median actual base</b> (the source has no salary-range midpoints); adjacent pay ranges are designed to overlap, so the meaningful bar is the level-above <i>median</i>, not its minimum. A level-inversion flag can occur while the person still earns less than their own manager, which is why it and the person-level test are shown separately.</div>
     </div>
     <div class="card" style="margin-bottom:18px;">
       <h3>Level Inversion — structural flag</h3>
@@ -244,12 +244,12 @@ tbody tr:hover{background:var(--page);}
     </div>
     <div class="card" style="margin-bottom:18px;">
       <h3>Person-Level Inversion — report out-earns their manager</h3>
-      <div class="desc">Active employees whose base exceeds their own performance manager's base — a genuine pay-relationship flip. Top 15 by gap.</div>
+      <div class="desc">Active employees whose base exceeds their own performance manager's base, same country only — a genuine pay-relationship flip. Top 15 by gap.</div>
       <div id="tbl-pinv"></div>
     </div>
     <div class="card">
       <h3>Compression — manager vs their reports</h3>
-      <div class="desc">Top 15 managers by # reports. Flag = manager base &lt; 1.15× their reports' median (differential compressed, not inverted).</div>
+      <div class="desc">Top 15 managers by # of same-country reports. Flag = manager base &lt; 1.15× those reports' median (differential compressed, not inverted).</div>
       <div id="tbl-mgr"></div>
     </div>
   </div>
@@ -621,21 +621,22 @@ function renderPersonInv(rows){
   const inv=[];
   active.forEach(r=>{
     if(!r.pmid)return; const m=byId[r.pmid]; if(!m)return;
+    if(m.country!==r.country)return; // only compare within the same country
     if(r.baseUsd>m.baseUsd){
-      inv.push({id:r.id,level:r.level,base:r.baseUsd,mid:r.pmid,mname:r.pm||r.pmid,
+      inv.push({id:r.id,country:r.country,level:r.level,base:r.baseUsd,mid:r.pmid,mname:r.pm||r.pmid,
         mlevel:m.level,mbase:m.baseUsd,gap:(r.baseUsd-m.baseUsd)/m.baseUsd});}
   });
   inv.sort((a,b)=>b.gap-a.gap);
   const top=inv.slice(0,15);
-  const rowsHtml=top.map((d,i)=>`<tr><td>${i+1}</td><td>${d.id}</td><td>${LEVEL_SHORT[d.level]||d.level}</td>
+  const rowsHtml=top.map((d,i)=>`<tr><td>${i+1}</td><td>${d.id}</td><td>${d.country}</td><td>${LEVEL_SHORT[d.level]||d.level}</td>
     <td class="num">${fmtUsdFull(d.base)}</td><td>${d.mname}</td><td>${LEVEL_SHORT[d.mlevel]||d.mlevel}</td>
     <td class="num">${fmtUsdFull(d.mbase)}</td>
     <td class="num"><span class="tag tag-flag">+${(d.gap*100).toFixed(0)}%</span></td></tr>`).join('');
   $('#tbl-pinv').innerHTML=top.length?
-    `<div class="tscroll"><table><thead><tr><th>#</th><th>Report GPID</th><th>Report Level</th>
+    `<div class="tscroll"><table><thead><tr><th>#</th><th>Report GPID</th><th>Country</th><th>Report Level</th>
     <th class="num">Report Base</th><th>Performance Manager</th><th>Mgr Level</th><th class="num">Mgr Base</th>
     <th class="num">Report over Mgr</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`
-    :'<div class="empty">No report out-earns their manager in this selection.</div>';
+    :'<div class="empty">No same-country report out-earns their manager in this selection.</div>';
 }
 
 // ---------- equity: manager sanity ----------
@@ -647,10 +648,12 @@ function renderMgr(rows){
   let mgrs=Object.entries(reports).map(([pmid,reps])=>{
     const mgr=byId[pmid]; if(!mgr)return null;
     if(!inScope.has(mgr.id))return null; // manager must also be in the current view (e.g. non-Partner by default)
-    const rb=reps.map(r=>r.baseUsd).sort((a,b)=>a-b);
+    const sc=reps.filter(r=>r.country===mgr.country); // compare only against same-country reports
+    if(!sc.length)return null;
+    const rb=sc.map(r=>r.baseUsd).sort((a,b)=>a-b);
     const medRep=median(rb);
-    return {pmid,name:mgr.pm||'—',country:mgr.country,level:mgr.level,base:mgr.baseUsd,
-      n:reps.length,medRep,ratio:medRep?mgr.baseUsd/medRep:0};
+    return {pmid,name:sc[0].pm||'—',country:mgr.country,level:mgr.level,base:mgr.baseUsd,
+      n:sc.length,medRep,ratio:medRep?mgr.baseUsd/medRep:0};
   }).filter(Boolean);
   mgrs.sort((a,b)=>b.n-a.n); mgrs=mgrs.slice(0,15);
   const rowsHtml=mgrs.map(d=>{
