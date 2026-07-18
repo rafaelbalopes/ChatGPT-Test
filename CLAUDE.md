@@ -7,8 +7,15 @@ and documentation for rebuilding the same analysis in Power BI (`POWERBI_PLAYBOO
 
 - Single self-contained file: all HTML/CSS/JS inline, data embedded as `const DATA=…`,
   **no external dependencies** (no CDN). It must stay openable from `file://` and offline.
-- Two placeholder columns are intentional and **flagged in-UI**: `gender` (inferred from
-  first name) and salary `ranges` (mock P5/median/P95 bands). Never present them as real.
+- Two placeholder columns are intentional and **flagged in-UI**, but only for the bundled
+  sample: `gender` (inferred from first name) and salary `ranges` (mock P5/median/P95 bands).
+  Never present them as real. **Uploads never infer gender** — a real Gender column is used
+  as-is; without one the Gender tab switches off. A real bands file (Country, Level,
+  Min/Mid/Max or P25/P50/P75, optional Currency) can be loaded to replace the mock ranges.
+- Extra loaders: **⊞ salary bands** and **⇄ prior snapshot** (powers the Changes tab:
+  joiners/leavers, pay movement, new inversions). A **data-quality panel** reports dropped
+  no-salary rows, FTE-0, duplicate/coerced IDs, unmapped currencies at ingest. Printing
+  (⌘P) renders every tab one-per-page in forced light theme with a filter-state header.
 - Range math (penetration, compa-ratio, band position, remediation) is computed **in USD**
   internally and converted only for display — do not reintroduce per-currency band pooling.
 - Escape any user-supplied string before it enters `innerHTML` (uploaded files can contain
