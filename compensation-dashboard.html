@@ -164,7 +164,60 @@ tbody tr:hover{background:var(--page);}
 .ds-reset:hover{border-color:var(--axis);color:var(--text-primary);}
 .ds-privacy{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap;}
 .foot{margin-top:36px;font-size:12px;color:var(--muted);text-align:center;}
+.upload-btn.sec{background:var(--surface-1);color:var(--text-primary);border:1px solid var(--border);}
+.upload-btn.sec:hover{filter:none;border-color:var(--axis);}
+.caveat-ok{background:color-mix(in srgb,var(--good) 10%,transparent);border-color:color-mix(in srgb,var(--good) 40%,transparent);}
+
+/* data-quality panel */
+.dq{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;margin:12px 0 4px;box-shadow:var(--shadow);}
+.dq summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dq summary::-webkit-details-marker{display:none;}
+.dq summary::before{content:'▸';color:var(--muted);transition:transform .15s;}
+.dq[open] summary::before{transform:rotate(90deg);}
+.dq-chip{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:99px;
+  background:color-mix(in srgb,var(--warning) 16%,transparent);color:var(--serious);}
+.dq-chip.dq-ok{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good);}
+.dq-chip.dq-info{background:color-mix(in srgb,var(--series-1) 13%,transparent);color:var(--series-1);}
+.dq-body{padding:2px 16px 14px;font-size:13px;color:var(--text-secondary);}
+.dq-item{margin:9px 0;padding-left:12px;border-left:3px solid var(--grid);line-height:1.55;}
+.dq-item b{color:var(--text-primary);font-weight:600;}
+.dq-item.dq-warned{border-left-color:var(--warning);}
+.dq-ids{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;word-break:break-all;}
+
+/* disabled-ish tab (no data behind it) */
+.tab.tab-off{opacity:.45;}
+.tab.tab-off::after{content:' ·';color:var(--muted);}
+
+/* print header (screen: hidden) */
+#printHeader{display:none;}
+
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+
+/* ---------- print / PDF ---------- */
+@media print{
+  :root,:root[data-theme="dark"],:root:not([data-theme="light"]){
+    --surface-1:#fff; --page:#fff;
+    --text-primary:#0b0b0b; --text-secondary:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.18);
+    --series-1:#2a78d6; --series-2:#1baf7a; --series-3:#eda100; --series-4:#008300;
+    --series-5:#4a3aa7; --series-6:#e34948; --series-7:#e87ba4; --series-8:#eb6834;
+    --heat:#2a78d6; --shadow:none;
+  }
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .wrap{max-width:none;padding:0;}
+  .datasrc,.filters,.tabs,.theme-btn,.dq,#tip,.filter-note{display:none!important;}
+  #printHeader{display:block;border:1px solid var(--border);border-radius:10px;padding:10px 14px;
+    margin:10px 0 16px;font-size:12px;color:var(--text-secondary);line-height:1.6;}
+  #printHeader b{color:var(--text-primary);}
+  .panel{display:block!important;break-before:page;}
+  #panel-comp{break-before:auto;}
+  .panel.print-skip{display:none!important;}
+  .panel::before{content:attr(data-title);display:block;font-size:19px;font-weight:700;
+    letter-spacing:-.01em;margin:0 0 14px;color:var(--text-primary);}
+  .card,.kpi,.defbox,.caveat{break-inside:avoid;box-shadow:none;}
+  .grid.g2{grid-template-columns:1fr 1fr;}
+  .foot{break-before:avoid;}
+}
 </style>
 </head>
 <body>
@@ -178,6 +231,8 @@ tbody tr:hover{background:var(--page);}
     <button class="theme-btn" id="themeBtn">◑ Theme</button>
   </header>
 
+  <div id="printHeader"></div>
+
   <div class="datasrc">
     <label class="upload-btn">⬆ Load your data
       <input type="file" id="fileInput" accept=".xlsx,.csv" hidden>
@@ -187,6 +242,22 @@ tbody tr:hover{background:var(--page);}
     <button class="ds-reset" id="resetData" hidden>Reset to sample</button>
     <span class="ds-privacy">🔒 Read in your browser — nothing is uploaded.</span>
   </div>
+  <div class="datasrc" style="margin-top:6px;">
+    <label class="upload-btn sec">⊞ Load salary bands
+      <input type="file" id="bandsInput" accept=".xlsx,.csv" hidden>
+    </label>
+    <span class="ds-status" id="bandsStatus">Using mock bands computed from the data.</span>
+    <button class="ds-reset" id="resetBands" hidden>✕ Clear bands</button>
+    <label class="upload-btn sec">⇄ Load prior snapshot
+      <input type="file" id="compareInput" accept=".xlsx,.csv" hidden>
+    </label>
+    <span class="ds-status" id="compareStatus">Compare against an earlier export to see changes.</span>
+    <button class="ds-reset" id="resetCompare" hidden>✕ Clear comparison</button>
+  </div>
+  <details class="dq" id="dqPanel" hidden>
+    <summary id="dqSummary">Data quality</summary>
+    <div class="dq-body" id="dqBody"></div>
+  </details>
 
   <div class="filters" id="filters">
     <div class="field"><label>Status</label><select id="f-status"></select></div>
@@ -210,10 +281,11 @@ tbody tr:hover{background:var(--page);}
     <button class="tab" data-tab="structure">Pay Structure</button>
     <button class="tab" data-tab="gender">Gender Gap</button>
     <button class="tab" data-tab="ranges">Salary Ranges</button>
+    <button class="tab" data-tab="delta" id="tab-delta" style="display:none">Changes</button>
   </div>
 
   <!-- COMPOSITION -->
-  <div class="panel active" id="panel-comp">
+  <div class="panel active" id="panel-comp" data-title="Composition">
     <div class="grid g2" style="margin-bottom:18px;">
       <div class="card">
         <div class="card-head">
@@ -252,7 +324,7 @@ tbody tr:hover{background:var(--page);}
   </div>
 
   <!-- EQUITY -->
-  <div class="panel" id="panel-equity">
+  <div class="panel" id="panel-equity" data-title="Equity">
     <div class="caveat"><b>⚠ Caveat.</b> Equity views compare pay in the selected currency across levels and countries.
       Global Level is the primary equalizer but does not capture within-level tenure or scope. Treat outliers as
       candidates for human review, not verdicts.</div>
@@ -294,7 +366,7 @@ tbody tr:hover{background:var(--page);}
   </div>
 
   <!-- PAY STRUCTURE -->
-  <div class="panel" id="panel-structure">
+  <div class="panel" id="panel-structure" data-title="Pay Structure">
     <div class="defbox">
       <div class="defbox-h">Pay structure &amp; internal equity</div>
       <ul>
@@ -302,7 +374,7 @@ tbody tr:hover{background:var(--page);}
         <li><b>Pay mix (bonus leverage).</b> Bonus as a share of base by level. Variable pay should lever up with seniority.</li>
         <li><b>Compa-ratio spread.</b> Each person's base ÷ the <b>midpoint of their salary band</b> (see the Salary Ranges tab). Centred on 1.0 when pay tracks the midpoint — the <i>width</i> of the spread shows how tightly each level is managed; below 0.8 or above 1.2 are outliers worth review.</li>
       </ul>
-      <div class="defbox-note">Compa-ratio now uses the <b>placeholder band midpoints</b> from the Salary Ranges tab; differentials use median actual base within each country (countries with ≥ 3 people at both adjacent levels). Both are FX-invariant.</div>
+      <div class="defbox-note" id="structure-note">Compa-ratio now uses the <b>placeholder band midpoints</b> from the Salary Ranges tab; differentials use median actual base within each country (countries with ≥ 3 people at both adjacent levels). Both are FX-invariant.</div>
     </div>
     <div class="grid g2" style="margin-bottom:18px;">
       <div class="card">
@@ -323,9 +395,13 @@ tbody tr:hover{background:var(--page);}
     </div>
   </div>
 
-  <!-- GENDER GAP (placeholder) -->
-  <div class="panel" id="panel-gender">
-    <div class="caveat caveat-alert">
+  <!-- GENDER GAP (placeholder unless a real Gender column is loaded) -->
+  <div class="panel" id="panel-gender" data-title="Gender Gap">
+    <div class="caveat" id="gender-empty" style="display:none">
+      <b>No gender data in this file.</b> The loaded export has no <b>Gender</b> column, so these views are switched off rather than shown on guessed data. Add a Gender column (M/F) to the export and reload — the pay-gap, representation and quartile views light up automatically.
+    </div>
+    <div id="gender-content">
+    <div class="caveat caveat-alert" id="gender-caveat">
       <b>⚠ Placeholder data — not for reporting.</b> Gender is <b>not</b> in the source export; it is <b>inferred from first names as a best guess</b> (several names are unisex) purely to demonstrate the EU Pay Transparency views. Because the inferred gender has no real relationship to how pay was set, the gaps below sit near zero <i>by construction</i> — feed <b>real HR gender data</b> and these same views surface actual gaps. The Directive flags unexplained gaps above <b>5%</b> within a category of worker.
     </div>
     <div class="kpis" id="gkpis"></div>
@@ -346,12 +422,13 @@ tbody tr:hover{background:var(--page);}
       <div class="desc">Population split into four equal-size pay bands (Q1 lowest → Q4 highest); share of women in each. Dashed line = 50% parity. This quartile breakdown is explicitly required by the EU Pay Transparency Directive.</div>
       <div id="chart-quart"></div>
     </div>
+    </div>
   </div>
 
-  <!-- SALARY RANGES (placeholder) -->
-  <div class="panel" id="panel-ranges">
-    <div class="caveat caveat-alert">
-      <b>⚠ Placeholder bands — illustrative only.</b> Salary ranges are <b>not</b> in the source export. A mock <b>min / midpoint / max</b> band is generated per country × level (midpoint ≈ the cohort's rounded median; edges near its 5th/95th percentiles), so the structure is realistic but invented. Replace with your real grade ranges and every view below — plus the compa-ratio on the Pay Structure tab — becomes exact.
+  <!-- SALARY RANGES (placeholder unless real bands are loaded) -->
+  <div class="panel" id="panel-ranges" data-title="Salary Ranges">
+    <div class="caveat caveat-alert" id="ranges-caveat">
+      <b>⚠ Placeholder bands — illustrative only.</b> Salary ranges are <b>not</b> in the source export. A mock <b>min / midpoint / max</b> band is generated per country × level (midpoint ≈ the cohort's rounded median; edges near its 5th/95th percentiles), so the structure is realistic but invented. Load your real grade ranges with <b>⊞ Load salary bands</b> above and every view below — plus the compa-ratio on the Pay Structure tab — becomes exact.
     </div>
     <div class="kpis" id="rkpis"></div>
     <div class="grid g2" style="margin:20px 0 18px;">
@@ -375,6 +452,29 @@ tbody tr:hover{background:var(--page);}
       <h3>Salary Range Structure</h3>
       <div class="desc">Min–midpoint–max band per level with the actual median marked. Bands are country-specific — select a single Country to view them.</div>
       <div id="chart-rangestruct"></div>
+    </div>
+  </div>
+
+  <!-- CHANGES vs prior snapshot (hidden until a comparison file is loaded) -->
+  <div class="panel print-skip" id="panel-delta" data-title="Changes vs Prior Snapshot">
+    <div class="caveat" id="delta-caveat"></div>
+    <div class="kpis" id="dkpis"></div>
+    <div class="grid g2" style="margin:20px 0 18px;">
+      <div class="card">
+        <h3>Median Base Movement by Level</h3>
+        <div class="desc">Median per-person base change for staff present in both snapshots, by current level. Same-currency change where possible (FX-proof), USD otherwise.</div>
+        <div id="chart-dlevel"></div>
+      </div>
+      <div class="card">
+        <h3>Net Headcount Change by Country</h3>
+        <div class="desc">Current headcount minus prior, top movers first. Green = grew, red = shrank.</div>
+        <div id="chart-dcountry"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>New Person-Level Inversions</h3>
+      <div class="desc">Same-country reports who now out-earn their own manager but did not in the prior snapshot. Top 15 by gap.</div>
+      <div id="tbl-dinv"></div>
     </div>
   </div>
 
@@ -428,8 +528,13 @@ function computeMoney(rows){
 }
 const payBase=r=>MONEY.eff==='local'?r['base']:r['baseUsd'];
 const payComp=r=>MONEY.eff==='local'?r['comp']:r['compUsd'];
-// ---- salary ranges (PLACEHOLDER mock bands, per country x level, computed & compared in USD) ----
+// ---- salary ranges (mock bands unless a real bands file is loaded; always stored in USD) ----
 let RANGES={};                                                        // country|level -> [min,mid,max] in USD, set at init/upload
+let REAL_BANDS=null;      // Map of normalized 'country|level' -> [lo,mid,hi] USD from a user bands file
+let BANDS_META=null;      // {name,count,trio,curNote} for the loaded bands file
+let PREV=null;            // {rows,name} prior snapshot powering the Changes tab
+let GENDER_SOURCE='sample'; // 'sample' (inferred demo) | 'real' (Gender column in upload) | 'none'
+let DQ=null;              // data-quality report from the last upload
 const fxOf=c=>DATA.fx[c]||1;
 const bandUsd=r=>RANGES[r.country+'|'+r.level];                        // [min,mid,max] USD
 // convert a USD band to the active display currency (local = USD / rate-to-USD)
@@ -776,26 +881,31 @@ function renderInversions(rows){
 }
 
 // ---------- equity: person-level inversion (report out-earns own manager) ----------
-function renderPersonInv(rows){
-  const active=rows; // rows are already status-filtered by passes()
+// shared by the Equity tab and the Changes tab's "new inversions" view
+function computePersonInv(rows,idMap){
   const inv=[];
-  active.forEach(r=>{
-    if(!r.pmid)return; const m=byId[r.pmid]; if(!m)return;
+  rows.forEach(r=>{
+    if(!r.pmid)return; const m=idMap[r.pmid]; if(!m)return;
     if(m.country!==r.country)return; // only compare within the same country
     if(payBase(m)>0&&payBase(r)>payBase(m)){
       inv.push({id:r.id,country:r.country,level:r.level,base:payBase(r),mid:r.pmid,mname:r.pm||r.pmid,
         mlevel:m.level,mbase:payBase(m),gap:(payBase(r)-payBase(m))/payBase(m)});}
   });
   inv.sort((a,b)=>b.gap-a.gap);
-  const top=inv.slice(0,15);
+  return inv;
+}
+function personInvTableHtml(top){
   const rowsHtml=top.map((d,i)=>`<tr><td>${i+1}</td><td>${esc(d.id)}</td><td>${esc(d.country)}</td><td>${esc(LEVEL_SHORT[d.level]||d.level)}</td>
     <td class="num">${fmtUsdFull(d.base)}</td><td>${esc(d.mname)}</td><td>${esc(LEVEL_SHORT[d.mlevel]||d.mlevel)}</td>
     <td class="num">${fmtUsdFull(d.mbase)}</td>
     <td class="num"><span class="tag tag-flag">+${(d.gap*100).toFixed(0)}%</span></td></tr>`).join('');
-  $('#tbl-pinv').innerHTML=top.length?
-    `<div class="tscroll"><table><thead><tr><th>#</th><th>Report GPID</th><th>Country</th><th>Report Level</th>
+  return `<div class="tscroll"><table><thead><tr><th>#</th><th>Report GPID</th><th>Country</th><th>Report Level</th>
     <th class="num">Report Base</th><th>Performance Manager</th><th>Mgr Level</th><th class="num">Mgr Base</th>
-    <th class="num">Report over Mgr</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`
+    <th class="num">Report over Mgr</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+function renderPersonInv(rows){
+  const top=computePersonInv(rows,byId).slice(0,15);
+  $('#tbl-pinv').innerHTML=top.length?personInvTableHtml(top)
     :'<div class="empty">No same-country report out-earns their manager in this selection.</div>';
 }
 
@@ -908,7 +1018,8 @@ function pctBar(mount,data,opts){
 }
 function divergingBar(mount,data,opts){
   opts=opts||{}; const el=$(mount); el.innerHTML='';
-  if(!data.length){el.innerHTML='<div class="empty">Not enough data — needs ≥ 5 of each gender per level.</div>';return;}
+  if(!data.length){el.innerHTML='<div class="empty">'+(opts.empty||'Not enough data — needs ≥ 5 of each gender per level.')+'</div>';return;}
+  const suf=opts.suffix!=null?opts.suffix:'%', dec=opts.dec!=null?opts.dec:1;
   const rowH=opts.rowH||30, gap=8, padL=opts.padL||90, padR=48, padT=8, padB=24;
   const h=padT+padB+data.length*(rowH+gap)-gap, w=el.clientWidth||760, plotW=w-padL-padR;
   const maxAbs=Math.max(opts.minDomain||10,...data.map(d=>Math.abs(d.value))), cx=padL+plotW/2;
@@ -917,8 +1028,8 @@ function divergingBar(mount,data,opts){
   const step=maxAbs<=10?5:maxAbs<=30?10:20;
   for(let tv=-Math.floor(maxAbs/step)*step;tv<=maxAbs+1e-9;tv+=step){const tx=x(tv);
     svg.appendChild(svel('line',{x1:tx,y1:padT-2,x2:tx,y2:h-padB,class:'gridline'}));
-    const t=svel('text',{x:tx,y:h-padB+15,'text-anchor':'middle',class:'axis-tick'});t.textContent=(tv>0?'+':'')+tv+'%';svg.appendChild(t);}
-  [-5,5].forEach(tv=>{if(Math.abs(tv)<maxAbs){const tx=x(tv);
+    const t=svel('text',{x:tx,y:h-padB+15,'text-anchor':'middle',class:'axis-tick'});t.textContent=(tv>0?'+':'')+tv+suf;svg.appendChild(t);}
+  if(opts.thresholds!==false)[-5,5].forEach(tv=>{if(Math.abs(tv)<maxAbs){const tx=x(tv);
     svg.appendChild(svel('line',{x1:tx,y1:padT-2,x2:tx,y2:h-padB,stroke:'var(--serious)','stroke-width':1,'stroke-dasharray':'3 3','stroke-opacity':.7}));}});
   svg.appendChild(svel('line',{x1:cx,y1:padT-2,x2:cx,y2:h-padB,stroke:'var(--axis)','stroke-width':1.5}));
   data.forEach((d,i)=>{const y=padT+i*(rowH+gap);
@@ -926,7 +1037,7 @@ function divergingBar(mount,data,opts){
     const xv=x(d.value), bw=Math.max(Math.abs(xv-cx),2), rx=Math.min(xv,cx);
     const rect=svel('rect',{x:rx,y:y,width:bw,height:rowH,rx:4,fill:d.color,class:'bar-rect'});bindTip(rect,d.tip);svg.appendChild(rect);
     const vt=svel('text',{x:d.value>=0?xv+8:xv-8,y:y+rowH/2+4,'text-anchor':d.value>=0?'start':'end',class:'val-label'});
-    vt.textContent=(d.value>0?'+':'')+d.value.toFixed(1)+'%';svg.appendChild(vt);});
+    vt.textContent=(d.value>0?'+':'')+d.value.toFixed(dec)+suf;svg.appendChild(vt);});
   el.appendChild(svg);
 }
 
@@ -934,6 +1045,7 @@ function divergingBar(mount,data,opts){
 const gmean=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0;
 function gapColor(g){return g>5?'var(--critical)':g<-5?'var(--series-1)':'var(--good)';}
 function renderGender(rows){
+  if(GENDER_SOURCE==='none')return; // no gender data — panel shows the explanation instead
   const active=rows; // rows are already status-filtered by passes()
   const M=active.filter(r=>r.gender==='M'), F=active.filter(r=>r.gender==='F');
   const rep=active.length?F.length/active.length*100:0;
@@ -1068,6 +1180,69 @@ function renderRanges(rows){
   renderRangeStruct(active);
 }
 
+// ---------- changes vs prior snapshot ----------
+function renderDelta(rows){
+  const cav=$('#delta-caveat');
+  if(!PREV){
+    cav.className='caveat';
+    cav.innerHTML='<b>No prior snapshot loaded.</b> Use <b>⇄ Load prior snapshot</b> above to compare two exports.';
+    $('#dkpis').innerHTML=''; hbar('#chart-dlevel',[]); hbar('#chart-dcountry',[]); $('#tbl-dinv').innerHTML='';
+    return;
+  }
+  const prev=PREV.rows.filter(passes);
+  const prevById={}; prev.forEach(r=>prevById[r.id]=r);
+  const curIds=new Set(rows.map(r=>r.id));
+  const joiners=rows.filter(r=>!prevById[r.id]);
+  const leavers=prev.filter(r=>!curIds.has(r.id));
+  // per-person % base movement for matched staff: same-currency change where possible (FX-proof), USD otherwise
+  const moves=[]; let promos=0;
+  rows.forEach(r=>{const p=prevById[r.id]; if(!p)return;
+    const chg=(r.cur===p.cur&&p.base>0)?(r.base-p.base)/p.base
+      :(p.baseUsd>0?(r.baseUsd-p.baseUsd)/p.baseUsd:null);
+    if(chg!=null)moves.push({r,chg});
+    const cr=LEVEL_RANK[r.level],pr=LEVEL_RANK[p.level];
+    if(cr&&pr&&cr<pr)promos++;});
+  const medMove=moves.length?medOf(moves.map(m=>m.chg))*100:null;
+  const gv=v=>v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
+  cav.className='caveat';
+  cav.innerHTML=`<b>Comparing:</b> current data vs <b>${esc(PREV.name)}</b> — ${fmtN(prev.length)} prior records in this filter view. All views respect the filter bar; pay movement uses same-currency change per person where possible, so FX moves don't masquerade as raises.`;
+  const net=rows.length-prev.length;
+  $('#dkpis').innerHTML=kpiCards([
+    ['Net Headcount',(net>=0?'+':'')+fmtN(net),fmtN(prev.length)+' → '+fmtN(rows.length),'accent-1',''],
+    ['Joiners',fmtN(joiners.length),'in current, not in prior','accent-2',''],
+    ['Leavers',fmtN(leavers.length),'in prior, not in current','accent-8',leavers.length?'style="color:var(--serious)"':''],
+    ['Median Base Movement',gv(medMove),fmtN(moves.length)+' matched staff','accent-3',''],
+    ['Promotions',fmtN(promos),'moved to a higher level','accent-5',''],
+  ]);
+  // median % movement by current level
+  const lvMap=new Map();
+  moves.forEach(m=>{const l=m.r.level; let a=lvMap.get(l); if(!a){a=[];lvMap.set(l,a);} a.push(m.chg);});
+  const lvArr=LEVEL_ORDER.filter(l=>lvMap.has(l)).map(l=>{
+    const a=lvMap.get(l); const v=medOf(a)*100;
+    return {label:LEVEL_SHORT[l]||l,value:v,color:v<0?'var(--critical)':'var(--series-2)',
+      tip:`<div class="t-t">${esc(l)}</div><div class="t-r">Median movement ${gv(v)} · N=${fmtN(a.length)}</div>`};});
+  divergingBar('#chart-dlevel',lvArr,{minDomain:5,thresholds:false,
+    empty:'No staff matched across both snapshots in this selection.'});
+  // net headcount change by country
+  const cc=new Map(); rows.forEach(r=>cc.set(r.country,(cc.get(r.country)||0)+1));
+  const pc=new Map(); prev.forEach(r=>pc.set(r.country,(pc.get(r.country)||0)+1));
+  const darr=[...new Set([...cc.keys(),...pc.keys()])]
+    .map(c=>({c,cur:cc.get(c)||0,pv:pc.get(c)||0}))
+    .map(d=>({...d,net:d.cur-d.pv}))
+    .filter(d=>d.net!==0)
+    .sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)).slice(0,12);
+  divergingBar('#chart-dcountry',darr.map(d=>({label:d.c.length>15?d.c.slice(0,14)+'…':d.c,value:d.net,
+    color:d.net>0?'var(--series-2)':'var(--critical)',
+    tip:`<div class="t-t">${esc(d.c)}</div><div class="t-r">${fmtN(d.pv)} → ${fmtN(d.cur)} (${d.net>0?'+':''}${fmtN(d.net)})</div>`})),
+    {minDomain:3,suffix:'',dec:0,thresholds:false,empty:'No country changed headcount in this selection.'});
+  // person-level inversions that are new since the prior snapshot
+  const prevAllById={}; PREV.rows.forEach(r=>prevAllById[r.id]=r);
+  const prevKeys=new Set(computePersonInv(prev,prevAllById).map(d=>d.id+'|'+d.mid));
+  const fresh=computePersonInv(rows,byId).filter(d=>!prevKeys.has(d.id+'|'+d.mid)).slice(0,15);
+  $('#tbl-dinv').innerHTML=fresh.length?personInvTableHtml(fresh)
+    :'<div class="empty">No new person-level inversions vs the prior snapshot.</div>';
+}
+
 function renderCurNote(){
   const el=$('#curnote');
   if(MONEY.eff==='local'){
@@ -1086,14 +1261,33 @@ const TAB_RENDER={
   structure:r=>{renderLadder(r);renderBonus(r);renderCompa(r);},
   gender:r=>renderGender(r),
   ranges:r=>renderRanges(r),
+  delta:r=>renderDelta(r),
 };
 const dirtyTabs=new Set();
+function updatePrintHeader(rows){
+  const lvLab=F.level==='__exPart'?'All levels (excl. Partner)':F.level==='__all'?'All levels (incl. Partner)':F.level;
+  const fteLab={'51':'≥ 51%','all':'All','100':'100%','50':'≤ 50%'}[F.fte]||F.fte;
+  $('#printHeader').innerHTML=
+    `<b>KPMGI Compensation Dashboard</b> — printed ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${fmtN(rows.length)} records in view<br>`+
+    `Filters: Status <b>${esc(F.status)}</b> · Country <b>${esc(F.country)}</b> · Level <b>${esc(lvLab)}</b> · GMT <b>${esc(F.gmt)}</b> · `+
+    `Arrangement <b>${esc(F.arr)}</b> · FTE <b>${fteLab}</b> · Currency <b>${MONEY.eff==='local'?'Local ('+esc(MONEY.code)+')':'USD (converted)'}</b>`+
+    (BANDS_META?` · Bands: <b>${esc(BANDS_META.name)}</b>`:` · Bands: <b>placeholder</b>`)+
+    (PREV?` · Compared vs <b>${esc(PREV.name)}</b>`:'');
+}
 function render(){
   const rows=filtered();
-  computeMoney(rows); renderCurNote(); renderKPIs(rows);
+  computeMoney(rows); renderCurNote(); renderKPIs(rows); updatePrintHeader(rows);
   TAB_RENDER[curTab](rows);
   Object.keys(TAB_RENDER).forEach(k=>{if(k!==curTab)dirtyTabs.add(k);});
 }
+// print = every tab on its own page, so render them all just-in-time (hidden panels fall back to a 760px layout width)
+function renderAllTabs(){
+  const rows=filtered();
+  Object.keys(TAB_RENDER).forEach(k=>{if(k==='delta'&&!PREV)return;TAB_RENDER[k](rows);});
+  dirtyTabs.clear();
+  Object.keys(TAB_RENDER).forEach(k=>{if(k!==curTab)dirtyTabs.add(k);}); // re-render at true width when shown on screen
+}
+window.addEventListener('beforeprint',renderAllTabs);
 
 // ---------- wiring ----------
 function initToggles(){
@@ -1123,10 +1317,8 @@ function initTheme(){
 window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(render,150);});
 
 // ================= LOCAL DATA LOADER (nothing leaves the browser) =================
-const NAME_GENDER={Aiden:'M',Aisha:'F',Alex:'M',Ana:'F',Bashar:'M',Camila:'F',Chen:'M',David:'M',
-  Diego:'M',Emma:'F',Eva:'F',Felix:'M',Hannah:'F',Hiroshi:'M',Ines:'F',Jordan:'M',Karim:'M',Lars:'M',
-  Layla:'F',Lina:'F',Lukas:'M',Marco:'M',Marta:'F',Maya:'F',Michael:'M',Niko:'M',Noah:'M',Nora:'F',
-  Olivia:'F',Pavel:'M',Priya:'F',Ravi:'M',Sam:'M',Sarah:'F',Sofia:'F',Sophie:'F',Tom:'M',Wei:'M',Yuki:'F',Zara:'F'};
+// NOTE: uploads never infer gender. A real Gender column is used as-is; without one the
+// Gender tab switches off. Only the bundled sample carries (clearly-flagged) inferred gender.
 const FXMAP=DATA.fx;
 // --- xlsx (zip) reading, dependency-free, fully local ---
 async function inflateRaw(bytes){
@@ -1174,7 +1366,7 @@ function sheetGrid(xml,shared){
   }
   return out;
 }
-async function parseXlsx(buf){
+async function parseXlsx(buf,sheetPred,noMatchMsg){
   if(typeof DecompressionStream==='undefined')throw new Error('Your browser cannot unzip .xlsx here — please save the file as CSV and upload that.');
   const z=await unzip(buf);
   const ssXml=await readEntry(z,'xl/sharedStrings.xml'); const shared=[];
@@ -1182,9 +1374,10 @@ async function parseXlsx(buf){
     for(let i=0;i<sis.length;i++){const ts=sis[i].getElementsByTagName('t');let s='';for(let j=0;j<ts.length;j++)s+=ts[j].textContent;shared.push(s);}}
   const names=Object.keys(z.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n))
     .sort((a,b)=>(+a.match(/(\d+)/)[1])-(+b.match(/(\d+)/)[1]));
+  const pred=sheetPred||(g=>g.length&&g[0].some(h=>String(h).trim().toUpperCase()==='GPID'));
   for(const n of names){const g=sheetGrid(await readEntry(z,n),shared);
-    if(g.length&&g[0].some(h=>String(h).trim().toUpperCase()==='GPID'))return g;}
-  throw new Error('No sheet with a “GPID” header column was found in that workbook.');
+    if(pred(g))return g;}
+  throw new Error(noMatchMsg||'No sheet with a “GPID” header column was found in that workbook.');
 }
 // --- csv ---
 function parseCSV(text){
@@ -1218,7 +1411,7 @@ function normCur(raw){
   for(const nm in CUR_NAMES){if(s.includes(nm))return CUR_NAMES[nm];}
   return s;                                                    // unknown; keep raw (rate 1.0)
 }
-// --- grid -> dashboard rows ---
+// --- grid -> dashboard rows (also builds the data-quality report) ---
 function gridToRows(grid){
   const hdr=grid[0].map(h=>String(h==null?'':h).trim());
   const idx={}; hdr.forEach((h,i)=>{idx[h.toLowerCase()]=i;});
@@ -1230,28 +1423,46 @@ function gridToRows(grid){
     status:col('Employee Status'),gmt:col('GMT Area'),cc:col('Cost Center'),entity:col('Employing Entity'),
     arr:col('Nature of Arrangement'),pmid:col('KPMGI Performance Manager User ID'),
     pmf:col('KPMGI Performance Manager First Name'),pml:col('KPMGI Performance Manager Last Name'),
-    fte:col('KPMGI FTE Percent'),bonus:col('Local FTE Bonus'),
-    first:col('Preferred First Name','KPMG User First Name'),gender:col('Gender','Sex')};
+    fte:col('KPMGI FTE Percent'),bonus:col('Local FTE Bonus'),gender:col('Gender','Sex')};
   const g=v=>v==null?'':v;
-  const rows=[]; let dropped=0; const unmapped=new Set();
+  const hasGenderCol=c.gender>=0;
+  const knownLevels=new Set(DATA.levels.map(l=>l[0]));
+  const dq={total:0,dropped:[],fte0:[],fteMissing:0,noFteCol:c.fte<0,coerced:0,dups:[],
+    unmappedCur:{},unknownLevels:{},blankCountry:0,genderBlank:0,hasGenderCol};
+  const seen=new Set();
+  const rows=[];
   for(let i=1;i<grid.length;i++){
     const r=grid[i]; if(!r||r[c.id]==null||r[c.id]==='')continue; // silently skip blank/trailing rows
-    const base=Number(r[c.base]); if(isNaN(base)){dropped++;continue;} // has an id but no usable base pay
+    dq.total++;
+    if(typeof r[c.id]==='number')dq.coerced++;                    // numeric ID stored as text (protects leading zeros)
+    const id=String(r[c.id]);
+    if(seen.has(id))dq.dups.push(id); else seen.add(id);
+    const rawBase=r[c.base];                                      // '' from CSV must drop like undefined from xlsx (Number('') is 0!)
+    const base=(rawBase==null||rawBase==='')?NaN:Number(rawBase);
+    if(isNaN(base)){dq.dropped.push(id);continue;}                // has an id but no usable base pay
     const bonus=c.bonus>=0?Number(r[c.bonus])||0:0;
-    const cur=normCur(g(r[c.cur])), rate=FXMAP[cur]; if(rate==null)unmapped.add(cur);
+    const cur=normCur(g(r[c.cur])), rate=FXMAP[cur];
+    if(rate==null)dq.unmappedCur[cur]=(dq.unmappedCur[cur]||0)+1;
     const fx=rate==null?1:rate;
-    const first=String(g(r[c.first])).trim().split(/\s+/)[0];
-    let gender=c.gender>=0?String(g(r[c.gender])).trim().toUpperCase().charAt(0):'';
-    if(gender!=='M'&&gender!=='F')gender=NAME_GENDER[first]||'U';
+    const level=g(r[c.level]), country=g(r[c.country]);
+    if(level&&!knownLevels.has(level))dq.unknownLevels[level]=(dq.unknownLevels[level]||0)+1;
+    if(!country)dq.blankCountry++;
+    let gender='';
+    if(hasGenderCol){gender=String(g(r[c.gender])).trim().toUpperCase().charAt(0);
+      if(gender!=='M'&&gender!=='F'){gender='U';dq.genderBlank++;}}
     const fteN=Number(r[c.fte]);
-    rows.push({id:String(g(r[c.id])),country:g(r[c.country]),status:normStatus(g(r[c.status])),
-      level:g(r[c.level]),gmt:g(r[c.gmt]),cc:g(r[c.cc]),entity:g(r[c.entity]),arr:g(r[c.arr]),
+    if(!dq.noFteCol){
+      if(r[c.fte]==null||r[c.fte]===''||isNaN(fteN))dq.fteMissing++;
+      else if(fteN===0)dq.fte0.push(id);
+    }
+    rows.push({id,country,status:normStatus(g(r[c.status])),
+      level,gmt:g(r[c.gmt]),cc:g(r[c.cc]),entity:g(r[c.entity]),arr:g(r[c.arr]),
       pmid:g(r[c.pmid]),pm:(g(r[c.pmf])+' '+g(r[c.pml])).trim(),gender,cur,fte:isNaN(fteN)?100:fteN,
       base:Math.round(base),comp:Math.round(base+bonus),
       baseUsd:Math.round(base*fx),compUsd:Math.round((base+bonus)*fx)});
   }
   if(!rows.length)throw new Error('No data rows found under the header.');
-  return {rows,dropped,unmapped:[...unmapped]};
+  return {rows,dq};
 }
 function computeRanges(rows){
   // bands in USD so a country x level cohort with mixed pay currencies still pools consistently
@@ -1263,10 +1474,122 @@ function computeRanges(rows){
     out[k]=[Math.round(mn),mid,Math.round(mx)];}
   return out;
 }
+// ---- real salary bands (Country, Level, Min/Mid/Max or P25/P50/P75, optional Currency) ----
+const bKey=(c,l)=>String(c==null?'':c).trim().toLowerCase()+'|'+String(l==null?'':l).trim().toLowerCase();
+function bandsHeaderOk(g){
+  if(!g.length)return false;
+  const h=g[0].map(x=>String(x==null?'':x).trim().toLowerCase());
+  return h.includes('country')&&(h.includes('level')||h.includes('global level'));
+}
+function parseBandsGrid(grid){
+  const hdr=grid[0].map(h=>String(h==null?'':h).trim());
+  const idx={}; hdr.forEach((h,i)=>{idx[h.toLowerCase()]=i;});
+  const col=(...names)=>{for(const nm of names){const i=idx[nm.toLowerCase()];if(i!=null)return i;}return -1;};
+  const cCountry=col('Country'), cLevel=col('Global Level','Level');
+  if(cCountry<0||cLevel<0)throw new Error('Bands file needs Country and Level (or Global Level) columns.');
+  let trio='min / mid / max';
+  let lo=col('Min','Minimum','Band Min','Range Min','P5'),
+      mid=col('Mid','Midpoint','Band Mid'),
+      hi=col('Max','Maximum','Band Max','Range Max','P95');
+  if(lo<0||hi<0){
+    const p25=col('P25'),p50=col('P50','Median'),p75=col('P75');
+    if(p25>=0&&p75>=0){lo=p25;mid=p50;hi=p75;trio='P25 / P50 / P75';}
+  }
+  if(lo<0||hi<0)throw new Error('Bands file needs Min/Mid/Max (or P25/P50/P75) columns.');
+  const cCur=col('Currency','Local Currency');
+  const bands=new Map(); let skipped=0;
+  for(let i=1;i<grid.length;i++){
+    const r=grid[i]; if(!r)continue;
+    const country=r[cCountry], level=r[cLevel];
+    if(country==null||country===''||level==null||level==='')continue;
+    let vLo=Number(r[lo]), vHi=Number(r[hi]), vMid=mid>=0?Number(r[mid]):NaN;
+    if(isNaN(vLo)||isNaN(vHi)||vHi<=vLo||vLo<0){skipped++;continue;}
+    if(isNaN(vMid)||vMid<=0)vMid=(vLo+vHi)/2;
+    if(cCur>=0){ // band amounts in local currency → convert once to USD (all internal band math is USD)
+      const fx=FXMAP[normCur(r[cCur])];
+      if(fx==null){skipped++;continue;}
+      vLo*=fx;vMid*=fx;vHi*=fx;
+    }
+    bands.set(bKey(country,level),[Math.round(vLo),Math.round(vMid),Math.round(vHi)]);
+  }
+  if(!bands.size)throw new Error('No usable band rows found (need numeric band values).');
+  return {bands,skipped,trio,
+    curNote:cCur>=0?'converted to USD from the Currency column':'no Currency column — values treated as USD'};
+}
+// RANGES comes from the real bands file when loaded, else from the mock generator
+function applyRanges(){
+  if(REAL_BANDS){
+    RANGES={};
+    const seen=new Set();
+    ROWS.forEach(r=>{const k=r.country+'|'+r.level; if(seen.has(k))return; seen.add(k);
+      const b=REAL_BANDS.get(bKey(r.country,r.level)); if(b)RANGES[k]=b;});
+  } else RANGES=computeRanges(ROWS);
+}
+function updateRangesUI(){
+  const cav=$('#ranges-caveat'), note=$('#structure-note');
+  if(REAL_BANDS&&BANDS_META){
+    cav.className='caveat caveat-ok';
+    cav.innerHTML=`<b>✓ Real salary bands loaded.</b> Bands come from <b>${esc(BANDS_META.name)}</b> (${fmtN(BANDS_META.count)} bands, ${esc(BANDS_META.trio)}; ${esc(BANDS_META.curNote)}). Band math runs in USD internally and converts only for display. Employees whose country × level has no band are excluded from these views.`;
+    note.innerHTML=`Compa-ratio now uses the <b>real band midpoints</b> loaded from ${esc(BANDS_META.name)}; differentials use median actual base within each country (countries with ≥ 3 people at both adjacent levels). Both are FX-invariant.`;
+  }else{
+    cav.className='caveat caveat-alert';
+    cav.innerHTML=`<b>⚠ Placeholder bands — illustrative only.</b> Salary ranges are <b>not</b> in the source export. A mock <b>min / midpoint / max</b> band is generated per country × level (midpoint ≈ the cohort&#39;s rounded median; edges near its 5th/95th percentiles), so the structure is realistic but invented. Load your real grade ranges with <b>⊞ Load salary bands</b> above and every view below — plus the compa-ratio on the Pay Structure tab — becomes exact.`;
+    note.innerHTML=`Compa-ratio now uses the <b>placeholder band midpoints</b> from the Salary Ranges tab; differentials use median actual base within each country (countries with ≥ 3 people at both adjacent levels). Both are FX-invariant.`;
+  }
+}
+// ---- gender tab on/off ----
+function updateGenderUI(){
+  const none=GENDER_SOURCE==='none';
+  document.querySelector('.tab[data-tab="gender"]').classList.toggle('tab-off',none);
+  $('#gender-empty').style.display=none?'':'none';
+  $('#gender-content').style.display=none?'none':'';
+  $('#panel-gender').classList.toggle('print-skip',none);
+  $('#gender-caveat').style.display=GENDER_SOURCE==='real'?'none':'';
+}
+// ---- changes tab on/off ----
+function updateDeltaUI(){
+  const on=!!PREV;
+  $('#tab-delta').style.display=on?'':'none';
+  $('#panel-delta').classList.toggle('print-skip',!on);
+  if(!on&&curTab==='delta')$$('.tab')[0].click(); // comparison cleared while viewing it → back to Composition
+}
+// ---- data-quality panel ----
+function renderDQ(){
+  const p=$('#dqPanel');
+  if(!DQ){p.hidden=true;return;}
+  const d=DQ, items=[], chips=[];
+  const plural=(n,s)=>fmtN(n)+' '+s+(n===1?'':'s');
+  const idList=a=>a.length?`<div class="dq-ids">${esc(a.slice(0,20).join(', '))}${a.length>20?' … and '+fmtN(a.length-20)+' more':''}</div>`:'';
+  if(d.dropped.length){chips.push(plural(d.dropped.length,'no-salary row'));
+    items.push(`<div class="dq-item dq-warned"><b>${plural(d.dropped.length,'row')} excluded — blank or non-numeric base pay.</b> They appear in no view or KPI; review them in the source file before treating totals as complete.${idList(d.dropped)}</div>`);}
+  if(d.fte0.length){chips.push(plural(d.fte0.length,'FTE-0 row'));
+    items.push(`<div class="dq-item dq-warned"><b>${plural(d.fte0.length,'employee')} with FTE = 0%.</b> Kept as 0 (not coerced to 100), so they carry no FTE-adjusted headcount or spend — and the default FTE ≥ 51% filter hides them.${idList(d.fte0)}</div>`);}
+  if(d.dups.length){chips.push(plural(d.dups.length,'duplicate ID'));
+    items.push(`<div class="dq-item dq-warned"><b>${plural(d.dups.length,'duplicate GPID')}.</b> Each duplicate is counted as a separate person in every view — deduplicate the export if that is not intended.${idList(d.dups)}</div>`);}
+  const unc=Object.entries(d.unmappedCur);
+  if(unc.length){chips.push('unmapped currency');
+    items.push(`<div class="dq-item dq-warned"><b>No FX rate for ${unc.map(([c,n])=>esc(c)+' ('+plural(n,'row')+')').join(', ')}.</b> Amounts stay unconverted (rate 1.0), so USD totals are misstated for these rows.</div>`);}
+  if(d.blankCountry)items.push(`<div class="dq-item dq-warned"><b>${plural(d.blankCountry,'row')} with a blank Country.</b> Country-based views group them under an empty label; same-country comparisons skip them.</div>`);
+  const unl=Object.entries(d.unknownLevels);
+  if(unl.length)items.push(`<div class="dq-item"><b>Levels outside the standard 7:</b> ${unl.map(([l,n])=>esc(l)+' ('+plural(n,'row')+')').join(', ')}. They are kept and ranked after the known levels in charts.</div>`);
+  if(d.noFteCol)items.push(`<div class="dq-item"><b>No FTE column found.</b> Everyone is treated as 100% FTE.</div>`);
+  else if(d.fteMissing)items.push(`<div class="dq-item"><b>${plural(d.fteMissing,'row')} with blank FTE</b> treated as 100%.</div>`);
+  if(d.coerced)items.push(`<div class="dq-item"><b>${plural(d.coerced,'numeric ID')} stored as text</b> — protects leading zeros, mirrors the “12 errors” fix from Power BI.</div>`);
+  items.push(d.hasGenderCol
+    ?`<div class="dq-item"><b>Gender column detected</b> — the Gender Gap tab uses your real data${d.genderBlank?' ('+plural(d.genderBlank,'row')+' not M/F → shown as Unknown)':''}. Nothing is inferred.</div>`
+    :`<div class="dq-item"><b>No Gender column</b> — the Gender Gap tab is switched off. Nothing is inferred from names.</div>`);
+  const clean=!chips.length;
+  $('#dqSummary').innerHTML=`Data quality — ${esc(d.file)} · ${fmtN(d.total)} rows read `+
+    (clean?'<span class="dq-chip dq-ok">clean</span>':chips.map(t=>`<span class="dq-chip">${t}</span>`).join(' '));
+  $('#dqBody').innerHTML=items.join('');
+  p.open=!clean;
+  p.hidden=false;
+}
 function loadDataset(rows){
-  ROWS=rows; rebuildLevels(rows); RANGES=computeRanges(rows); indexRows();
+  ROWS=rows; rebuildLevels(rows); applyRanges(); indexRows();
   Object.assign(F,{status:'Active',country:'All',level:'__exPart',gmt:'All',arr:'All',fte:'51'}); CURMODE='usd';
-  initFilters(); $('#foot-n').textContent=fmtN(ROWS.length); render();
+  initFilters(); $('#foot-n').textContent=fmtN(ROWS.length);
+  renderDQ(); updateGenderUI(); updateRangesUI(); updateDeltaUI(); render();
 }
 function setDataStatus(msg,kind){const el=$('#dataStatus');el.textContent=msg;el.className='ds-status'+(kind?' ds-'+kind:'');}
 async function handleFile(file){
@@ -1275,18 +1598,58 @@ async function handleFile(file){
     let grid;
     if(/\.csv$/i.test(file.name)) grid=parseCSV(await file.text());
     else grid=await parseXlsx(await file.arrayBuffer());
-    const {rows,dropped,unmapped}=gridToRows(grid);
+    const {rows,dq}=gridToRows(grid);
+    GENDER_SOURCE=dq.hasGenderCol?'real':'none';
+    DQ={...dq,file:file.name};
     loadDataset(rows);
+    const unmapped=Object.keys(dq.unmappedCur);
     let msg='Loaded '+file.name+' — '+fmtN(rows.length)+' records, read in your browser.';
     const warn=[];
-    if(dropped)warn.push(fmtN(dropped)+' row'+(dropped>1?'s':'')+' skipped (no base pay)');
+    if(dq.dropped.length)warn.push(fmtN(dq.dropped.length)+' row'+(dq.dropped.length>1?'s':'')+' skipped (no base pay)');
     if(unmapped.length)warn.push('no FX rate for '+unmapped.join(', ')+' — shown unconverted');
-    if(warn.length){setDataStatus(msg+' ⚠ '+warn.join('; ')+'.','warn');}
+    if(warn.length){setDataStatus(msg+' ⚠ '+warn.join('; ')+' — see Data quality below.','warn');}
     else setDataStatus(msg,'ok');
     $('#resetData').hidden=false;
   }catch(err){
     setDataStatus('Could not load: '+err.message,'err');
   }
+}
+async function handleBandsFile(file){
+  const st=$('#bandsStatus');
+  try{
+    st.textContent='Reading '+file.name+' …'; st.className='ds-status ds-busy';
+    let grid;
+    if(/\.csv$/i.test(file.name)) grid=parseCSV(await file.text());
+    else grid=await parseXlsx(await file.arrayBuffer(),bandsHeaderOk,
+      'No sheet with Country + Level header columns was found in that workbook.');
+    const {bands,skipped,trio,curNote}=parseBandsGrid(grid);
+    REAL_BANDS=bands; BANDS_META={name:file.name,count:bands.size,trio,curNote};
+    applyRanges(); updateRangesUI();
+    const combos=new Set(ROWS.map(r=>r.country+'|'+r.level));
+    let matched=0; combos.forEach(k=>{if(RANGES[k])matched++;});
+    let msg='Loaded '+file.name+' — '+fmtN(bands.size)+' bands ('+trio+'), matching '+fmtN(matched)+' of '+fmtN(combos.size)+' country × level cohorts.';
+    if(skipped)msg+=' ⚠ '+fmtN(skipped)+' band rows skipped.';
+    if(!matched)msg+=' No cohorts matched — check Country and Level spellings against the data.';
+    st.textContent=msg; st.className='ds-status '+(!matched?'ds-err':skipped?'ds-warn':'ds-ok');
+    $('#resetBands').hidden=false;
+    render();
+  }catch(err){st.textContent='Could not load bands: '+err.message; st.className='ds-status ds-err';}
+}
+async function handleCompareFile(file){
+  const st=$('#compareStatus');
+  try{
+    st.textContent='Reading '+file.name+' …'; st.className='ds-status ds-busy';
+    let grid;
+    if(/\.csv$/i.test(file.name)) grid=parseCSV(await file.text());
+    else grid=await parseXlsx(await file.arrayBuffer());
+    const {rows}=gridToRows(grid);
+    PREV={rows,name:file.name};
+    updateDeltaUI();
+    st.textContent='Comparing against '+file.name+' — '+fmtN(rows.length)+' prior records. Open the Changes tab.';
+    st.className='ds-status ds-ok';
+    $('#resetCompare').hidden=false;
+    render();
+  }catch(err){st.textContent='Could not load snapshot: '+err.message; st.className='ds-status ds-err';}
 }
 function csvCell(v){v=v==null?'':String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function exportCSV(){
@@ -1312,12 +1675,21 @@ function exportCSV(){
 function initLoader(){
   $('#exportBtn').onclick=exportCSV;
   $('#fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f);e.target.value='';});
-  $('#resetData').onclick=()=>{loadDataset(SAMPLE_ROWS);
+  $('#resetData').onclick=()=>{GENDER_SOURCE='sample';DQ=null;loadDataset(SAMPLE_ROWS);
     setDataStatus('Showing the bundled sample data ('+fmtN(SAMPLE_ROWS.length)+' records).','');$('#resetData').hidden=true;};
+  $('#bandsInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)handleBandsFile(f);e.target.value='';});
+  $('#resetBands').onclick=()=>{REAL_BANDS=null;BANDS_META=null;applyRanges();updateRangesUI();
+    const st=$('#bandsStatus');st.textContent='Using mock bands computed from the data.';st.className='ds-status';
+    $('#resetBands').hidden=true;render();};
+  $('#compareInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)handleCompareFile(f);e.target.value='';});
+  $('#resetCompare').onclick=()=>{PREV=null;updateDeltaUI();
+    const st=$('#compareStatus');st.textContent='Compare against an earlier export to see changes.';st.className='ds-status';
+    $('#resetCompare').hidden=true;render();};
 }
 
-RANGES=computeRanges(ROWS);
+applyRanges();
 initFilters(); initToggles(); initTabs(); initTheme(); initLoader();
+updateGenderUI(); updateRangesUI(); updateDeltaUI();
 $('#foot-n').textContent=fmtN(ROWS.length);
 render();
 </script>
